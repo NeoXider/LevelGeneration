@@ -10,7 +10,7 @@ main path to the exit is known, and a minimap with a route hint already knows ho
 
 [![Unity](https://img.shields.io/badge/Unity-6000.0%2B-black)](https://unity.com/releases/editor)
 [![License](https://img.shields.io/badge/license-PolyForm%20Small%20Business%201.0.0-blue)](LICENSE.md)
-[![Version](https://img.shields.io/badge/version-4.1.0-5ee05a)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.1.1-5ee05a)](CHANGELOG.md)
 
 <sub>
 <a href="#why">Why</a>&nbsp;&nbsp;•&nbsp;
@@ -95,13 +95,13 @@ id and pose, door connections with an `IsMainPath` flag, the start node and the 
 Unity **6000.0+**. Package Manager → *Add package from git URL*:
 
 ```text
-https://github.com/NeoXider/LevelGeneration.git#v4.1.0
+https://github.com/NeoXider/LevelGeneration.git#v4.1.1
 ```
 
 or in `Packages/manifest.json`:
 
 ```json
-"com.neoxider.level-generation": "https://github.com/NeoXider/LevelGeneration.git#v4.1.0"
+"com.neoxider.level-generation": "https://github.com/NeoXider/LevelGeneration.git#v4.1.1"
 ```
 
 Dependencies come from the Unity registry automatically: `com.unity.render-pipelines.universal` 17.0.3

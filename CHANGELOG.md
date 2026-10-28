@@ -1,5 +1,13 @@
 # Neoxider LevelGeneration Changelog
 
+## 4.1.1 — 2026-10-29 fix: лишние .meta пустых папок
+
+- **Пакет без `.meta` пустых папок.** В репозитории лежали `.meta` пяти папок без файлов (`Application`,
+  `Generation/Application/Topology`, `Generation/Infrastructure/DependencyHints`, `Generation/Infrastructure/Runtime`,
+  `Tests/EditMode/Editor`); git пустые папки не хранит, и Unity при каждом импорте пакета по git URL писал
+  предупреждение «A meta data file (.meta) exists but its folder … can't be found». `.meta` удалены, код,
+  раскладка и `LayoutContract` (`2`) не менялись.
+
 ## 4.1.0 — 2026-10-28 fix: детерминизм сида, честные лабиринты, ключ до замка, путь в обход предметов
 
 Раскладка для того же сида меняется (правильная дверь лабиринта, заглушки, бюджет размещения): чекпойнты миссий
