@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b4056a3a790b3441a47224abac604bb, type: 3}
+  m_Name: LevelMinimapSettings
+  m_EditorClassIdentifier: RedoSchool.LevelGeneration.Runtime::RedoSchool.Features.LevelGeneration.Runtime.Presentation.LevelMinimapSettings
+  roomRevealDelaySeconds: 1
+  roomRevealAnimationSeconds: 0.6
+  routeHintEnabled: 1
+  routeHintIdleSeconds: 60
+  routeHintStyle: 0
+  routeHintColor: {r: 1, g: 0.84, b: 0.32, a: 1}
+  routeHintOutlineColor: {r: 0.02, g: 0.05, b: 0.09, a: 0.85}
+  routeHintDotRadiusPixels: 3.2
+  routeHintDotSpacingPixels: 11
+  routeHintLineWidthPixels: 3
+  routeHintFullMapSizeMultiplier: 1.25
+  routeHintFlowSpeedPixelsPerSecond: 26
+  routeHintFadeSeconds: 0.35
+  routeHintDrawOnSeconds: 0.8
+  routeHintTargetMarkerRadiusPixels: 7
+  routeHintTargetPulseSeconds: 1.2
+  routeHintReplanIntervalSeconds: 0.25
+  routeHintReplanDeviationMeters: 1.5
+  routeHintPathWallClearanceMeters: 0.9
+  routeHintPathDoorApproachMeters: 1.4
+  routeHintPathStartOffsetMeters: 0.75
+  routeHintPathMinVisibleMeters: 0.5
+  routeHintFloorEnabled: 1
+  routeHintFloorViewPrefab: {fileID: 962658109037829001, guid: d1dd519424cb62c4bad7ca1045a78b75, type: 3}
+  routeHintFloorRevealSeconds: 1.25
+  routeHintFloorFadeSeconds: 0.9
+  routeHintFloorHideFadeSeconds: 0.18
+  routeHintFloorApproachMeters: 0
+  routeHintFloorWidthMeters: 0.55
+  routeHintFloorCornerRadiusMeters: 0.9
+  routeHintFloorCornerMaxDeviationMeters: 0.25
+  routeHintFloorSampleSpacingMeters: 0.3
+  routeHintFloorLiftMeters: 0.03
+  routeHintFloorLayers:
+    serializedVersion: 2
+    m_Bits: 1
+  routeHintFloorProbeHeightMeters: 1.2
+  routeHintFloorMaxStepMeters: 0.35
+  routeHintFloorStartFadeMeters: .35
+  routeHintFloorSparkleSpacingMeters: .1
+  routeHintFloorMaxSparkles: 400
+  routeHintFloorSparkleColor: {r: 2.2, g: 1.65, b: 0.12, a: 1}
+  routeHintFloorSparkleSizeMeters: 0.1
+  routeHintFloorSparkleSizeMinScale: 0.5
+  routeHintFloorSparkleSizeMaxScale: 2
+  routeHintFloorSparkleSizeSkew: 3
+  routeHintFloorSparkleSpeedMetersPerSecond: 0.5
+  routeHintFloorSparkleHeightMeters: 0.175
+  routeHintFloorSparkleLateralJitterMeters: 0.2
+  routeHintFloorSparkleVerticalJitterMeters: 0.125
+  routeHintFloorSparkleTwinkleHertz: 2.4
+  routeHintFloorSparkleTwinkleHertzSpread: 0.5
+  routeHintFloorSparkleTwinkleAlpha: 0.45
+  routeHintFloorSparkleTwinkleSize: 0.3
+  routeHintFloorSparkleLongTwinkleFraction: 0.2
+  routeHintFloorSparkleLongTwinkleSeconds: 3.5
+  routeHintFloorSparkleLongTwinkleDepth: 0.9
+  routeHintFloorSparkleAlongWobbleMeters: 0.12
+  routeHintFloorSparkleLateralWobbleMeters: 0.08
+  routeHintFloorSparkleWobbleSeconds: 5
+  routeHintFloorSparkleWallMarginMeters: 0.3
+  routeHintFloorSparkleEndFadeMeters: 0.65
+  routeHintFloorSparkleRevealFeatherMeters: 0.35

@@ -1,0 +1,19 @@
+﻿{
+  "name": "RedoSchool.LevelGeneration.Runtime",
+  "rootNamespace": "RedoSchool.Features.LevelGeneration.Runtime",
+  "references": [
+    "RedoSchool.LevelGeneration.Domain",
+    "RedoSchool.LevelGeneration",
+    "RedoSchool.LevelGeneration.Unity",
+    "RedoSchool.LevelGeneration.Runtime.Domain"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

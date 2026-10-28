@@ -1,0 +1,20 @@
+﻿{
+  "name": "RedoSchool.LevelGeneration.Editor",
+  "rootNamespace": "RedoSchool.Features.LevelGeneration.Editor",
+  "references": [
+    "RedoSchool.LevelGeneration",
+    "RedoSchool.LevelGeneration.Domain",
+    "RedoSchool.LevelGeneration.Unity"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
