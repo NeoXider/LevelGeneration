@@ -13,6 +13,9 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
     {
         private const float ConnectedDoorSeamOverlapToleranceMeters = 0.25f;
 
+        // Запас broadphase-отсечения пар комнат — тот же, что у размещения (SocketBacktrackingRoomPlacer).
+        private const float OverlapBroadphaseMarginMeters = LevelGenerationGridMetrics.DoorSnapMeters;
+
         private readonly IRoomDatabase _roomDatabase;
         private readonly IReadOnlyList<IRoomDependencyHintExtractor> _hintExtractors;
 
@@ -123,42 +126,8 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
             }
 
             Dictionary<string, IRoomTemplateDescriptor> templatesById = BuildTemplateLookup();
-            List<(PlacedRoom room, IRoomTemplateDescriptor template)> checkedRooms = new();
-            for (int i = 0; i < layout.Rooms.Count; i++)
-            {
-                PlacedRoom room = layout.Rooms[i];
-                templatesById.TryGetValue(room.RoomTemplateId, out IRoomTemplateDescriptor template);
-                for (int j = 0; j < checkedRooms.Count; j++)
-                {
-                    (PlacedRoom room, IRoomTemplateDescriptor template) other = checkedRooms[j];
-                    DoorConnection? directConnection =
-                        FindDirectConnection(layout.Connections, room.NodeId, other.room.NodeId);
-
-                    if (!RoomsOverlap(room, template, other.room, other.template, directConnection))
-                    {
-                        continue;
-                    }
-
-                    // Maze wrong-answer dead-end caps are force-placed to honour the "every wrong door is a real
-                    // dead-end room" contract. The only dead-end template is wider than the gap between some
-                    // rooms' answer doors, so its cap can physically overlap a sibling/tunnel. We surface that as
-                    // a non-fatal WARNING (so the layout still ships) instead of rejecting the seed into a
-                    // generation timeout. Review the geometry / add a narrower dead-end template to clear it.
-                    bool deadEndOverlap = template?.Kind == RoomKind.DeadEnd
-                                          || other.template?.Kind == RoomKind.DeadEnd;
-                    issues.Add(new LevelValidationIssue(
-                        "RoomsOverlap",
-                        $"Room '{room.NodeId}' overlaps room '{other.room.NodeId}'."
-                        + (deadEndOverlap
-                            ? " Dead-end cap overlap — non-fatal WARNING; the dead-end template is wider than the"
-                              + " gap, review geometry or use a narrower cap."
-                            : string.Empty),
-                        deadEndOverlap ? LevelValidationSeverity.Warning : LevelValidationSeverity.Error));
-                    break;
-                }
-
-                checkedRooms.Add((room, template));
-            }
+            ValidateDoorSocketIds(layout, templatesById, issues);
+            ValidateOverlaps(layout, templatesById, issues);
 
             // 5. Main path reachability (BFS Start → ExitNodes via connections).
             if (config != null && hasStart && layout.ExitNodeIds != null && layout.ExitNodeIds.Count > 0)
@@ -237,10 +206,121 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
             ValidateGraphCoverage(layout, graph, issues);
             ValidateRoomKindSpawnRules(layout, config, templatesById, issues);
             ValidateMissionRoomSpawnRules(layout, config, issues);
-            ValidateDependencyHints(layout, tileset, issues);
+            ValidateDependencyHints(layout, tileset, hasStart, issues);
 
             return new LevelValidationResult(issues);
         }
+
+        private static void ValidateDoorSocketIds(
+            LevelLayout layout,
+            IReadOnlyDictionary<string, IRoomTemplateDescriptor> templatesById,
+            List<LevelValidationIssue> issues)
+        {
+            HashSet<string> checkedTemplates = new(StringComparer.Ordinal);
+            for (int i = 0; i < layout.Rooms.Count; i++)
+            {
+                PlacedRoom room = layout.Rooms[i];
+                if (room == null
+                    || !templatesById.TryGetValue(room.RoomTemplateId, out IRoomTemplateDescriptor template)
+                    || template == null
+                    || !checkedTemplates.Add(room.RoomTemplateId))
+                {
+                    continue;
+                }
+
+                if (DoorSocketIdRules.TryFindDuplicateConnectableSocketId(template, out string socketId))
+                {
+                    issues.Add(DoorSocketIdRules.CreateDuplicateIssue(template.RoomId, socketId));
+                }
+            }
+        }
+
+        // Все пары комнат проверяются до конца, без выхода на первом пересечении: иначе безобидное предупреждение
+        // о двух тупиковых заглушках прятало бы настоящую ошибку пересечения той же комнаты с другой.
+        private static void ValidateOverlaps(
+            LevelLayout layout,
+            IReadOnlyDictionary<string, IRoomTemplateDescriptor> templatesById,
+            List<LevelValidationIssue> issues)
+        {
+            int count = layout.Rooms.Count;
+            RoomOverlapShape[] shapes = new RoomOverlapShape[count];
+            for (int i = 0; i < count; i++)
+            {
+                PlacedRoom room = layout.Rooms[i];
+                templatesById.TryGetValue(room.RoomTemplateId, out IRoomTemplateDescriptor template);
+                shapes[i] = RoomOverlapShape.Create(room, template);
+            }
+
+            Dictionary<(string, string), DoorConnection> connectionsByPair = BuildConnectionLookup(layout.Connections);
+            for (int i = 0; i < count; i++)
+            {
+                RoomOverlapShape room = shapes[i];
+                for (int j = 0; j < i; j++)
+                {
+                    RoomOverlapShape other = shapes[j];
+
+                    // Broadphase: стены, чьи AABB не сходятся даже с запасом, пересечься не могут — точная SAT-проверка
+                    // для них дала бы тот же «нет». Запас как у размещения, поэтому отсечение ничего не прячет.
+                    if (room.HasWalls
+                        && other.HasWalls
+                        && !room.Bounds.Overlaps(other.Bounds, OverlapBroadphaseMarginMeters))
+                    {
+                        continue;
+                    }
+
+                    DoorConnection? directConnection =
+                        FindDirectConnection(connectionsByPair, room.Room.NodeId, other.Room.NodeId);
+                    if (!RoomsOverlap(room, other, directConnection))
+                    {
+                        continue;
+                    }
+
+                    // Пересечение с основным путём или с любой не-тупиковой комнатой — всегда ошибка: сид отклоняется.
+                    // Предупреждением остаётся только наложение двух тупиковых заглушек (обе шаблона DeadEnd).
+                    // Генератор такие раскладки больше не строит: заглушки неверных ответов не ставятся с наложением.
+                    bool deadEndCapsOnly = room.Template?.Kind == RoomKind.DeadEnd
+                                           && other.Template?.Kind == RoomKind.DeadEnd;
+                    issues.Add(new LevelValidationIssue(
+                        "RoomsOverlap",
+                        $"Room '{room.Room.NodeId}' overlaps room '{other.Room.NodeId}'."
+                        + (deadEndCapsOnly
+                            ? " Both are dead-end caps — non-fatal WARNING; review geometry or use a narrower cap."
+                            : string.Empty),
+                        deadEndCapsOnly ? LevelValidationSeverity.Warning : LevelValidationSeverity.Error));
+                }
+            }
+        }
+
+        private static Dictionary<(string, string), DoorConnection> BuildConnectionLookup(
+            IReadOnlyList<DoorConnection> connections)
+        {
+            Dictionary<(string, string), DoorConnection> result = new();
+            if (connections == null)
+            {
+                return result;
+            }
+
+            for (int i = 0; i < connections.Count; i++)
+            {
+                DoorConnection connection = connections[i];
+                if (string.IsNullOrEmpty(connection.FromNodeId) || string.IsNullOrEmpty(connection.ToNodeId))
+                {
+                    continue;
+                }
+
+                // Первое соединение пары выигрывает — как прежний линейный поиск по списку.
+                (string, string) key = PairKey(connection.FromNodeId, connection.ToNodeId);
+                if (!result.ContainsKey(key))
+                {
+                    result[key] = connection;
+                }
+            }
+
+            return result;
+        }
+
+        private static (string, string) PairKey(string a, string b) =>
+            string.CompareOrdinal(a, b) <= 0 ? (a, b) : (b, a);
 
         private static bool HasPlannedInteractiveContent(IMissionConfigView config)
         {
@@ -249,32 +329,19 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
                    && planned.PlannedInteractiveContent.Count > 0;
         }
 
-        private static DoorConnection? FindDirectConnection(IReadOnlyList<DoorConnection> connections, string a,
+        private static DoorConnection? FindDirectConnection(
+            IReadOnlyDictionary<(string, string), DoorConnection> connectionsByPair,
+            string a,
             string b)
         {
-            if (connections == null || string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+            if (connectionsByPair == null || string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
             {
                 return null;
             }
 
-            for (int i = 0; i < connections.Count; i++)
-            {
-                DoorConnection connection = connections[i];
-
-                if (string.Equals(connection.FromNodeId, a, StringComparison.Ordinal)
-                    && string.Equals(connection.ToNodeId, b, StringComparison.Ordinal))
-                {
-                    return connection;
-                }
-
-                if (string.Equals(connection.FromNodeId, b, StringComparison.Ordinal)
-                    && string.Equals(connection.ToNodeId, a, StringComparison.Ordinal))
-                {
-                    return connection;
-                }
-            }
-
-            return null;
+            return connectionsByPair.TryGetValue(PairKey(a, b), out DoorConnection connection)
+                ? connection
+                : (DoorConnection?)null;
         }
 
         private static void ValidateGraphCoverage(
@@ -480,7 +547,7 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
             return count;
         }
 
-        private void ValidateDependencyHints(LevelLayout layout, ITilesetView tileset,
+        private void ValidateDependencyHints(LevelLayout layout, ITilesetView tileset, bool hasStart,
             List<LevelValidationIssue> issues)
         {
             if (_roomDatabase == null || _hintExtractors.Count == 0)
@@ -510,17 +577,14 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
             }
 
             Dictionary<string, List<string>> nodesByTemplateId = BuildPlacedTemplateLookup(layout);
-            Dictionary<string, Dictionary<string, int>> distancesByNode = BuildAllDistances(layout);
+            Dictionary<string, List<string>> adjacency =
+                KeyLockReachability.BuildAdjacency(EnumerateConnectionLinks(layout.Connections));
+            Dictionary<string, Dictionary<string, int>> distancesByLock = new(StringComparer.Ordinal);
+            Dictionary<string, HashSet<string>> reachableBeforeLock = new(StringComparer.Ordinal);
             for (int i = 0; i < hints.Count; i++)
             {
                 RoomDependencyHint hint = hints[i];
                 if (!hint.IsValid)
-                {
-                    continue;
-                }
-
-                if (!nodesByTemplateId.TryGetValue(hint.SourceRoomTemplateId, out List<string> sourceNodeIds)
-                    || sourceNodeIds.Count == 0)
                 {
                     continue;
                 }
@@ -531,70 +595,152 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
                     continue;
                 }
 
-                int bestDistance = int.MaxValue;
-                bool foundConnectedPair = false;
-                for (int s = 0; s < sourceNodeIds.Count; s++)
+                // Замок поставлен, а ключа нет вовсе — дверь не откроется никогда. Раньше такая раскладка проходила
+                // (проверка молча пропускала подсказку), теперь это ошибка для каждого замка.
+                if (!nodesByTemplateId.TryGetValue(hint.SourceRoomTemplateId, out List<string> sourceNodeIds)
+                    || sourceNodeIds.Count == 0)
                 {
-                    if (!distancesByNode.TryGetValue(sourceNodeIds[s], out Dictionary<string, int> sourceDistances))
-                    {
-                        continue;
-                    }
-
                     for (int t = 0; t < targetNodeIds.Count; t++)
                     {
-                        if (sourceDistances.TryGetValue(targetNodeIds[t], out int distance))
-                        {
-                            foundConnectedPair = true;
-                            if (distance < bestDistance)
-                            {
-                                bestDistance = distance;
-                            }
-                        }
+                        issues.Add(new LevelValidationIssue(
+                            "KeyDependencyUnsatisfied",
+                            $"Lock room '{targetNodeIds[t]}' ('{hint.TargetRoomTemplateId}') is placed, but no key room '{hint.SourceRoomTemplateId}' is placed.",
+                            LevelValidationSeverity.Error));
                     }
-                }
 
-                // C2 (interim): a GENUINE unsatisfied key dependency must be a hard Error so the layout is
-                // rejected and the generator retries — it must never ship as a mere Warning. The two genuine
-                // cases below (no connected path between key and lock; key further from lock than MaxDistance,
-                // i.e. effectively unreachable within the allowed range) are unrecoverable correctness defects
-                // and are always Error.
-                if (!foundConnectedPair)
-                {
-                    issues.Add(new LevelValidationIssue(
-                        "KeyDependencyUnsatisfied",
-                        $"Dependency '{hint.SourceRoomTemplateId}' -> '{hint.TargetRoomTemplateId}' is disconnected.",
-                        LevelValidationSeverity.Error));
                     continue;
                 }
 
-                if (bestDistance > hint.MaxDistance)
+                // Каждый замок проверяется отдельно: ключ годится ему, только если до ключа можно дойти от старта,
+                // не входя в этот замок (тот же обход, что выбирает узел под ключ в генераторе).
+                for (int t = 0; t < targetNodeIds.Count; t++)
                 {
-                    issues.Add(new LevelValidationIssue(
-                        "KeyDependencyUnsatisfied",
-                        $"Dependency '{hint.SourceRoomTemplateId}' -> '{hint.TargetRoomTemplateId}' distance is {bestDistance}, expected {hint.MinDistance}..{hint.MaxDistance}.",
-                        LevelValidationSeverity.Error));
+                    ValidateKeyForLock(
+                        layout,
+                        hint,
+                        sourceNodeIds,
+                        targetNodeIds[t],
+                        hasStart,
+                        adjacency,
+                        distancesByLock,
+                        reachableBeforeLock,
+                        issues);
+                }
+            }
+        }
+
+        private static void ValidateKeyForLock(
+            LevelLayout layout,
+            RoomDependencyHint hint,
+            IReadOnlyList<string> sourceNodeIds,
+            string lockNodeId,
+            bool hasStart,
+            IReadOnlyDictionary<string, List<string>> adjacency,
+            Dictionary<string, Dictionary<string, int>> distancesByLock,
+            Dictionary<string, HashSet<string>> reachableBeforeLock,
+            List<LevelValidationIssue> issues)
+        {
+            if (!distancesByLock.TryGetValue(lockNodeId, out Dictionary<string, int> fromLock))
+            {
+                fromLock = KeyLockReachability.Distances(lockNodeId, adjacency);
+                distancesByLock[lockNodeId] = fromLock;
+            }
+
+            HashSet<string> beforeLock = null;
+            if (hasStart && !reachableBeforeLock.TryGetValue(lockNodeId, out beforeLock))
+            {
+                beforeLock = KeyLockReachability.CollectReachableBeforeLock(layout.StartNodeId, lockNodeId, adjacency);
+                reachableBeforeLock[lockNodeId] = beforeLock;
+            }
+
+            int bestDistance = int.MaxValue;
+            bool foundConnectedKey = false;
+            bool foundKeyBeforeLock = false;
+            for (int s = 0; s < sourceNodeIds.Count; s++)
+            {
+                string keyNodeId = sourceNodeIds[s];
+                if (string.Equals(keyNodeId, lockNodeId, StringComparison.Ordinal)
+                    || !fromLock.TryGetValue(keyNodeId, out int distance))
+                {
                     continue;
                 }
 
-                if (bestDistance < hint.MinDistance)
+                foundConnectedKey = true;
+
+                // Без старта (MissingStart уже Error) достижимость «до замка» не определена — проверяем только связность.
+                if (beforeLock != null && !beforeLock.Contains(keyNodeId))
                 {
-                    // DISTINCT from the genuine cases above: key and lock ARE connected and within MaxDistance,
-                    // they are merely closer together than the preferred MinDistance. On small layouts the
-                    // available room budget physically cannot honour MinDistance, so this is a soft "distance
-                    // too close" heuristic — not a hard unreachability defect. We keep it as a Warning only in
-                    // that small-layout case (so we don't turn currently-passing seeds into constant failures);
-                    // otherwise it is a real layout problem and stays an Error.
-                    LevelValidationSeverity severity = layout.Rooms.Count - 1 <= hint.MinDistance
-                        ? LevelValidationSeverity.Warning
-                        : LevelValidationSeverity.Error;
-                    string code = severity == LevelValidationSeverity.Warning
-                        ? "DependencyDistanceShrunk"
-                        : "KeyDependencyUnsatisfied";
-                    issues.Add(new LevelValidationIssue(
-                        code,
-                        $"Dependency '{hint.SourceRoomTemplateId}' -> '{hint.TargetRoomTemplateId}' distance is {bestDistance}, min {hint.MinDistance}.",
-                        severity));
+                    continue;
                 }
+
+                foundKeyBeforeLock = true;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                }
+            }
+
+            // C2: a GENUINE unsatisfied key dependency must be a hard Error so the layout is rejected and the
+            // generator retries — it must never ship as a mere Warning. Genuine cases: no connected path between
+            // key and lock; the key is reachable only THROUGH its own lock; the key is further from the lock
+            // than MaxDistance.
+            if (!foundConnectedKey)
+            {
+                issues.Add(new LevelValidationIssue(
+                    "KeyDependencyUnsatisfied",
+                    $"Dependency '{hint.SourceRoomTemplateId}' -> '{hint.TargetRoomTemplateId}' is disconnected (lock room '{lockNodeId}').",
+                    LevelValidationSeverity.Error));
+                return;
+            }
+
+            if (!foundKeyBeforeLock)
+            {
+                issues.Add(new LevelValidationIssue(
+                    "KeyDependencyUnsatisfied",
+                    $"Dependency '{hint.SourceRoomTemplateId}' -> '{hint.TargetRoomTemplateId}': every key room is reachable from Start only through its lock room '{lockNodeId}' (key behind its own lock).",
+                    LevelValidationSeverity.Error));
+                return;
+            }
+
+            if (bestDistance > hint.MaxDistance)
+            {
+                issues.Add(new LevelValidationIssue(
+                    "KeyDependencyUnsatisfied",
+                    $"Dependency '{hint.SourceRoomTemplateId}' -> '{hint.TargetRoomTemplateId}' distance is {bestDistance}, expected {hint.MinDistance}..{hint.MaxDistance} (lock room '{lockNodeId}').",
+                    LevelValidationSeverity.Error));
+                return;
+            }
+
+            if (bestDistance < hint.MinDistance)
+            {
+                // DISTINCT from the genuine cases above: key and lock ARE connected, the key is before the lock and
+                // within MaxDistance, they are merely closer together than the preferred MinDistance. On small
+                // layouts the available room budget physically cannot honour MinDistance, so this is a soft
+                // "distance too close" heuristic. We keep it as a Warning only in that small-layout case;
+                // otherwise it is a real layout problem and stays an Error.
+                LevelValidationSeverity severity = layout.Rooms.Count - 1 <= hint.MinDistance
+                    ? LevelValidationSeverity.Warning
+                    : LevelValidationSeverity.Error;
+                string code = severity == LevelValidationSeverity.Warning
+                    ? "DependencyDistanceShrunk"
+                    : "KeyDependencyUnsatisfied";
+                issues.Add(new LevelValidationIssue(
+                    code,
+                    $"Dependency '{hint.SourceRoomTemplateId}' -> '{hint.TargetRoomTemplateId}' distance is {bestDistance}, min {hint.MinDistance} (lock room '{lockNodeId}').",
+                    severity));
+            }
+        }
+
+        private static IEnumerable<(string a, string b)> EnumerateConnectionLinks(IReadOnlyList<DoorConnection> connections)
+        {
+            if (connections == null)
+            {
+                yield break;
+            }
+
+            for (int i = 0; i < connections.Count; i++)
+            {
+                yield return (connections[i].FromNodeId, connections[i].ToNodeId);
             }
         }
 
@@ -617,22 +763,22 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
         }
 
         private static bool RoomsOverlap(
-            PlacedRoom a,
-            IRoomTemplateDescriptor aTemplate,
-            PlacedRoom b,
-            IRoomTemplateDescriptor bTemplate,
-            DoorConnection? directConnection = null)
+            in RoomOverlapShape aRoom,
+            in RoomOverlapShape bRoom,
+            DoorConnection? directConnection)
         {
+            PlacedRoom a = aRoom.Room;
+            IRoomTemplateDescriptor aTemplate = aRoom.Template;
+            PlacedRoom b = bRoom.Room;
+            IRoomTemplateDescriptor bTemplate = bRoom.Template;
             (float x, float z)? seamPointMeters = directConnection.HasValue
                 ? ResolveConnectedDoorSeamMeters(directConnection.Value, a, aTemplate, b, bTemplate)
                 : null;
-            if (RoomWallCollision.TryOverlaps(
-                    a,
-                    aTemplate,
-                    b,
-                    bTemplate,
-                    seamPointMeters,
-                    out bool wallOverlaps))
+
+            // Стены каждой комнаты трансформированы один раз (RoomOverlapShape), а не заново на каждую пару.
+            if (aRoom.HasWalls
+                && bRoom.HasWalls
+                && RoomWallCollision.TryOverlaps(aRoom.Walls, bRoom.Walls, seamPointMeters, out bool wallOverlaps))
             {
                 return wallOverlaps;
             }
@@ -857,6 +1003,43 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
             }
         }
 
+        // Комната для проверки пересечений: стены трансформированы один раз на валидацию, AABB — для broadphase.
+        private readonly struct RoomOverlapShape
+        {
+            public readonly PlacedRoom Room;
+            public readonly IRoomTemplateDescriptor Template;
+            public readonly bool HasWalls;
+            public readonly RoomWallCollision.TransformedWallSegments Walls;
+            public readonly RoomWallCollision.Aabb Bounds;
+
+            private RoomOverlapShape(
+                PlacedRoom room,
+                IRoomTemplateDescriptor template,
+                bool hasWalls,
+                RoomWallCollision.TransformedWallSegments walls,
+                RoomWallCollision.Aabb bounds)
+            {
+                Room = room;
+                Template = template;
+                HasWalls = hasWalls;
+                Walls = walls;
+                Bounds = bounds;
+            }
+
+            public static RoomOverlapShape Create(PlacedRoom room, IRoomTemplateDescriptor template)
+            {
+                if (room != null
+                    && RoomWallCollision.TryTransform(room, template,
+                        out RoomWallCollision.TransformedWallSegments walls)
+                    && walls.HasSegments)
+                {
+                    return new RoomOverlapShape(room, template, true, walls, RoomWallCollision.BoundsOf(walls));
+                }
+
+                return new RoomOverlapShape(room, template, false, default, RoomWallCollision.Aabb.Empty);
+            }
+        }
+
         private static HashSet<string> BfsFromStart(LevelLayout layout)
         {
             HashSet<string> visited = new() { layout.StartNodeId };
@@ -937,54 +1120,6 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
             return result;
         }
 
-        private static Dictionary<string, Dictionary<string, int>> BuildAllDistances(LevelLayout layout)
-        {
-            Dictionary<string, Dictionary<string, int>> result = new();
-            for (int i = 0; i < layout.Rooms.Count; i++)
-            {
-                result[layout.Rooms[i].NodeId] = CalculateDistances(layout, layout.Rooms[i].NodeId);
-            }
-
-            return result;
-        }
-
-        private static Dictionary<string, int> CalculateDistances(LevelLayout layout, string startNodeId)
-        {
-            Dictionary<string, List<string>> adjacency = new();
-            for (int i = 0; i < layout.Connections.Count; i++)
-            {
-                DoorConnection c = layout.Connections[i];
-                AddEdge(adjacency, c.FromNodeId, c.ToNodeId);
-                AddEdge(adjacency, c.ToNodeId, c.FromNodeId);
-            }
-
-            Dictionary<string, int> distances = new() { [startNodeId] = 0 };
-            Queue<string> queue = new();
-            queue.Enqueue(startNodeId);
-            while (queue.Count > 0)
-            {
-                string current = queue.Dequeue();
-                if (!adjacency.TryGetValue(current, out List<string> neighbors))
-                {
-                    continue;
-                }
-
-                for (int i = 0; i < neighbors.Count; i++)
-                {
-                    string next = neighbors[i];
-                    if (distances.ContainsKey(next))
-                    {
-                        continue;
-                    }
-
-                    distances[next] = distances[current] + 1;
-                    queue.Enqueue(next);
-                }
-            }
-
-            return distances;
-        }
-
         private static void AddEdge(Dictionary<string, List<string>> adj, string a, string b)
         {
             if (!adj.TryGetValue(a, out List<string> list))
@@ -995,5 +1130,73 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
 
             list.Add(b);
         }
+    }
+
+    /// <summary>
+    /// Правило уникальности id дверных сокетов комнаты. Состояние двери адресуется по <c>SocketId</c>
+    /// (<see cref="PlacedRoom.DoorStates"/>, занятость сокетов при размещении, поиск двери в <see cref="DoorConnector"/>),
+    /// поэтому две двери с одним id молча делят одно состояние: соединение одной «открывает» другую, запечатывание
+    /// одной запечатывает обе. Шаблон с таким дефектом отклоняется явной ошибкой с именем комнаты и сокета —
+    /// до размещения (<see cref="MissionGenerator"/>), при проверке раскладки (<see cref="LevelValidator"/>) и
+    /// при проверке префаба (<c>RoomPrefabGridValidator</c>).
+    /// </summary>
+    public static class DoorSocketIdRules
+    {
+        public const string DuplicateIssueCode = "DuplicateDoorSocketId";
+
+        /// <summary>
+        /// Ищет id, который носят несколько дверей шаблона, хотя бы одна из которых подключаемая
+        /// (<see cref="DoorSocketDescriptorMetrics.IsConnectable"/>). Пустой/null id считается обычным id.
+        /// </summary>
+        public static bool TryFindDuplicateConnectableSocketId(IRoomTemplateDescriptor template, out string socketId)
+        {
+            socketId = null;
+            return template?.Doors != null && TryFindDuplicateConnectableSocketId(template.Doors, out socketId);
+        }
+
+        public static bool TryFindDuplicateConnectableSocketId(
+            IReadOnlyList<IDoorSocketDescriptor> doors,
+            out string socketId)
+        {
+            socketId = null;
+            if (doors == null || doors.Count < 2)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < doors.Count; i++)
+            {
+                IDoorSocketDescriptor first = doors[i];
+                if (first == null)
+                {
+                    continue;
+                }
+
+                string id = first.SocketId ?? string.Empty;
+                for (int j = i + 1; j < doors.Count; j++)
+                {
+                    IDoorSocketDescriptor second = doors[j];
+                    if (second == null
+                        || !string.Equals(id, second.SocketId ?? string.Empty, StringComparison.Ordinal)
+                        || (!first.IsConnectable() && !second.IsConnectable()))
+                    {
+                        continue;
+                    }
+
+                    socketId = id;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static string DescribeDuplicate(string roomId, string socketId) =>
+            $"Room template '{roomId}' has several door sockets with id '{socketId}' (at least one is connectable). "
+            + "Door state is keyed by socket id, so these doors would silently share one state; give every door "
+            + "socket of the room a unique id.";
+
+        public static LevelValidationIssue CreateDuplicateIssue(string roomId, string socketId) =>
+            new(DuplicateIssueCode, DescribeDuplicate(roomId, socketId), LevelValidationSeverity.Error);
     }
 }

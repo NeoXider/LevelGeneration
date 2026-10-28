@@ -49,6 +49,12 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         private readonly List<Vector2> _routeHintScreenPath = new();
         private readonly List<float> _routeHintScreenDistances = new();
         private readonly List<RouteHintScreenWall> _routeHintScreenWalls = new();
+        private readonly List<RouteHintNearWall> _routeHintNearWalls = new();
+        private int _routeHintNearWallsRevision = int.MinValue;
+        private int _routeHintNearWallsRevealVersion = int.MinValue;
+        private int _routeHintNearWallsGeometryVersion = int.MinValue;
+        private IReadOnlyList<MinimapRoomSnapshot> _routeHintNearWallsRooms;
+        private int _routeHintNearWallsRoomCount = -1;
         private readonly List<DoorOpeningSubscription> _doorSubscriptions = new();
         private readonly Dictionary<string, IRoomTaskAnchor[]> _taskAnchorsByNodeId = new(StringComparer.Ordinal);
         private IRoomTaskAnchor _routeHintTaskAnchor;
@@ -64,8 +70,46 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         private bool _routeHintPlanned;
         private float _routeHintBlockedSeconds;
         private float _lastRouteHintDiagnosticLogTime = float.NegativeInfinity;
-        private float _nextRouteHintDiagnosticRefreshTime;
-        public string RouteHintDiagnosticText { get; private set; } = "No active level";
+
+        /// <summary>
+        /// Строка диагностики собирается лениво — когда её читают (чит-панель) или пишут в лог на смене
+        /// состояния, — а не каждые полсекунды впустую: это крупная строка форматирования, мусор в WebGL.
+        /// Прочитанная строка живёт <see cref="RouteHintDiagnosticRefreshSeconds"/>, как и прежде.
+        /// </summary>
+        public string RouteHintDiagnosticText
+        {
+            get
+            {
+                if (_routeHintDiagnosticGameplay == null)
+                {
+                    return _routeHintDiagnosticFallbackText;
+                }
+
+                float now = Time.unscaledTime;
+                if (_routeHintDiagnosticText == null || now >= _routeHintDiagnosticTextExpiresAt)
+                {
+                    _routeHintDiagnosticText = BuildRouteHintDiagnosticText();
+                    _routeHintDiagnosticTextExpiresAt = now + RouteHintDiagnosticRefreshSeconds;
+                }
+
+                return _routeHintDiagnosticText;
+            }
+        }
+
+        private const float RouteHintDiagnosticRefreshSeconds = 0.5f;
+        private string _routeHintDiagnosticFallbackText = "No active level";
+        private string _routeHintDiagnosticText;
+        private float _routeHintDiagnosticTextExpiresAt;
+
+        /// <summary>Сколько раз собиралась строка диагностики подсказки (страж ленивой сборки).</summary>
+        internal int RouteHintDiagnosticBuildCount { get; private set; }
+
+        // Входы строки диагностики с последнего кадра: строка собирается из них по требованию.
+        private IMinimapGameplayContext _routeHintDiagnosticGameplay;
+        private RouteHintPresence _routeHintDiagnosticPresence;
+        private string _routeHintDiagnosticBlocker = string.Empty;
+        private bool _routeHintDiagnosticEnabled;
+        private bool _routeHintDiagnosticLiveStartBlocked;
         private bool _plannedRouteHintTaskActive;
         private const int NoCriticalPathProblemCode = -1;
         private const string PathNotPlannedBlocker = "PathNotPlanned";
@@ -170,6 +214,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         /// (владелец 2026-10-14: «при открытой двери комната не отрисовывается, только когда полностью
         /// зашёл» — это дефект). Посещённой для подсказки маршрута она от этого не становится, таймер
         /// простоя открытие двери не трогает: прогресс — только вход дальше по пути и задание цели.
+        /// Живая дверь у связи одна (дверь From-комнаты; дубль в To-комнате игра выключает), и открывают её
+        /// с обеих сторон — поэтому раскрывается комната по любую сторону двери
+        /// (<see cref="LevelMinimapSession.ScheduleRevealAcrossDoor"/>), а не только «за» её владельцем.
         /// </summary>
         public void NotifyDoorOpened(string nodeId, string socketId)
         {
@@ -178,9 +225,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 return;
             }
 
-            string roomBehind = _session.FindRoomBehindDoor(nodeId, socketId);
             float now = Time.unscaledTime;
-            if (_session.ScheduleReveal(roomBehind, now + Settings.RoomRevealDelaySeconds))
+            if (_session.ScheduleRevealAcrossDoor(nodeId, socketId, now + Settings.RoomRevealDelaySeconds) > 0)
             {
                 UpdateRoomReveals(now);
             }
@@ -209,11 +255,10 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             LastRouteHintPathOutcome = RouteHintPathOutcome.NoTarget;
             _routeHintBlockedSeconds = 0f;
             _lastRouteHintDiagnosticLogTime = float.NegativeInfinity;
-            _nextRouteHintDiagnosticRefreshTime = 0f;
             _hasLoggedRouteHintState = false;
             _routeHintLiveStartBlocked = false;
             _routeHintLiveStartBlockedSince = -1f;
-            RouteHintDiagnosticText = "Waiting for first update";
+            ResetRouteHintDiagnosticText("Waiting for first update");
             ResetRouteHintFloor();
         }
 
@@ -233,8 +278,17 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             _hasLoggedRouteHintState = false;
             _routeHintLiveStartBlocked = false;
             _routeHintLiveStartBlockedSince = -1f;
-            RouteHintDiagnosticText = "No active level";
+            ResetRouteHintDiagnosticText("No active level");
             ResetRouteHintFloor();
+        }
+
+        /// <summary>До первого кадра уровня строка диагностики — заглушка, а не собранная из старых входов.</summary>
+        private void ResetRouteHintDiagnosticText(string fallback)
+        {
+            _routeHintDiagnosticFallbackText = fallback;
+            _routeHintDiagnosticGameplay = null;
+            _routeHintDiagnosticText = null;
+            _routeHintDiagnosticTextExpiresAt = 0f;
         }
 
         /// <summary>
@@ -243,7 +297,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         /// от игрока) и, как раньше, периодическая строка при долгой блокировке. Так WebGL-сборка сама
         /// показывает, на каком шаге подсказка не дошла до экрана (план b333 §2a).
         /// </summary>
-        private void UpdateRouteHintDiagnostics(IMinimapGameplayContext gameplay, RouteHintPresence presence,
+        internal void UpdateRouteHintDiagnostics(IMinimapGameplayContext gameplay, RouteHintPresence presence,
             float deltaTime, float unscaledDeltaTime, float now)
         {
             bool playerInWorld = presence == RouteHintPresence.Exploring;
@@ -280,17 +334,25 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                            || _loggedFullMapOpen != _session.IsFullMapOpen
                            || _loggedFullMapVisible != IsFullMapVisible
                            || _loggedLiveStartBlocked != liveStartBlocked;
-            if (now < _nextRouteHintDiagnosticRefreshTime && !log && !changed)
-                return;
 
-            string control = gameplay.DescribeControl();
-            string fullMap = !_session.IsFullMapOpen ? "closed" : IsFullMapVisible ? "shown" : "hiddenByUi";
-            RouteHintDiagnosticText = FormattableString.Invariant(
-                $"idle={_routeHint.IdleSeconds:0.0}/{_routeHint.IdleThresholdSeconds:0.0}s presence={presence} {control} outcome={_routeHint.Decision.Outcome} target={_routeHint.Decision.HasTarget} planned={_routeHintPlanned} path={LastRouteHintPathOutcome}{_routeHintFailureText} trailDev={_routeHintDeviationMeters:0.0}m floor={_routeHintReveal.Phase} alpha={_routeHintAlpha:0.00} liveStartBlocked={liveStartBlocked} fullMap={fullMap} enabled={enabled} forced={_routeHint.IsForced} blocker={blocker} blocked={_routeHintBlockedSeconds:0.0}s timeScale={Time.timeScale:0.00} focused={UnityEngine.Application.isFocused} cursor={Cursor.lockState} room={_session.CurrentRoomId}");
-            _nextRouteHintDiagnosticRefreshTime = now + 0.5f;
+            // Входы строки запоминаются каждый кадр (это присваивания, не форматирование); сама строка
+            // собирается, только когда её пишут в лог или читают.
+            _routeHintDiagnosticGameplay = gameplay;
+            _routeHintDiagnosticPresence = presence;
+            _routeHintDiagnosticBlocker = blocker;
+            _routeHintDiagnosticEnabled = enabled;
+            _routeHintDiagnosticLiveStartBlocked = liveStartBlocked;
+            if (!log && !changed)
+            {
+                return;
+            }
+
+            string text = BuildRouteHintDiagnosticText();
+            _routeHintDiagnosticText = text;
+            _routeHintDiagnosticTextExpiresAt = now + RouteHintDiagnosticRefreshSeconds;
             if (changed)
             {
-                LevelGenerationRuntimeLog.Info("Route hint state changed: " + RouteHintDiagnosticText);
+                LevelGenerationRuntimeLog.Info("Route hint state changed: " + text);
                 _hasLoggedRouteHintState = true;
                 _loggedPresence = presence;
                 _loggedOutcome = _routeHint.Decision.Outcome;
@@ -302,13 +364,29 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
             else if (log)
             {
-                LevelGenerationRuntimeLog.Info(RouteHintDiagnosticText);
+                LevelGenerationRuntimeLog.Info(text);
             }
 
             if (log)
             {
                 _lastRouteHintDiagnosticLogTime = now;
             }
+        }
+
+        /// <summary>Строка диагностики подсказки — один формат для лога и для чит-панели.</summary>
+        private string BuildRouteHintDiagnosticText()
+        {
+            RouteHintDiagnosticBuildCount++;
+            string control = _routeHintDiagnosticGameplay != null
+                ? _routeHintDiagnosticGameplay.DescribeControl()
+                : string.Empty;
+            string fullMap = !_session.IsFullMapOpen ? "closed" : IsFullMapVisible ? "shown" : "hiddenByUi";
+            RouteHintPresence presence = _routeHintDiagnosticPresence;
+            bool liveStartBlocked = _routeHintDiagnosticLiveStartBlocked;
+            bool enabled = _routeHintDiagnosticEnabled;
+            string blocker = _routeHintDiagnosticBlocker;
+            return FormattableString.Invariant(
+                $"idle={_routeHint.IdleSeconds:0.0}/{_routeHint.IdleThresholdSeconds:0.0}s presence={presence} {control} outcome={_routeHint.Decision.Outcome} target={_routeHint.Decision.HasTarget} planned={_routeHintPlanned} path={LastRouteHintPathOutcome}{_routeHintFailureText} trailDev={_routeHintDeviationMeters:0.0}m floor={_routeHintReveal.Phase} alpha={_routeHintAlpha:0.00} liveStartBlocked={liveStartBlocked} fullMap={fullMap} enabled={enabled} forced={_routeHint.IsForced} blocker={blocker} blocked={_routeHintBlockedSeconds:0.0}s timeScale={Time.timeScale:0.00} focused={UnityEngine.Application.isFocused} cursor={Cursor.lockState} room={_session.CurrentRoomId}");
         }
 
         /// <summary>Logs idle resets caused by forward critical-path progress or completion of the target task.</summary>
@@ -345,10 +423,10 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             StaticMapCacheStatus geometry = _fullMapCache.Status;
             bool textureCreated = _fullMapCache.Texture != null && _fullMapCache.Created;
             string problem = !cached ? "map rect too small, geometry cache skipped"
+                : roomCount == 0 ? "no revealed rooms to draw"
                 : geometry == StaticMapCacheStatus.MaterialUnavailable ? "GL material unavailable, walls are empty"
                 : geometry == StaticMapCacheStatus.TextureNotCreated || !textureCreated
                     ? "geometry cache texture was not created"
-                : roomCount == 0 ? "no revealed rooms to draw"
                 : !projected ? "projection failed, live layers and player are not drawn"
                 : null;
             string message = FormattableString.Invariant(
@@ -381,7 +459,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             float secondDistance = -1f;
             for (int i = 0; i < rooms.Count; i++)
             {
-                Vector2[] corners = BuildRoomWorldCorners(rooms[i]);
+                Vector2[] corners = GetRoomGeometry(rooms[i]).Corners;
                 float farthest = 0f;
                 for (int c = 0; c < corners.Length; c++)
                 {
@@ -799,11 +877,19 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             return true;
         }
 
+        /// <summary>
+        /// Закрыт ли проход связи. Проход держит ОДНА живая дверь — дверь From-комнаты (<c>NodeA</c>): игра
+        /// оставляет её, а дубль в To-комнате выключает (<see cref="DoorState.Disabled"/>) и прячет. Раньше
+        /// проверялись обе стороны, и выключенный дубль делал запертым каждый проход — из боковой комнаты или
+        /// тупика подсказка не находила дороги назад. Сторона To закрывает проход, только если её дверь живая
+        /// (включена, активна, не выключена) и заперта.
+        /// </summary>
         private bool IsTransitDoorLocked(RouteHintDoor door) =>
-            IsSocketBlockedForTransit(door.NodeA, door.SocketA)
-            || IsSocketBlockedForTransit(door.NodeB, door.SocketB);
+            IsLiveSocketBlockedForTransit(door.NodeA, door.SocketA)
+            || IsDuplicateSocketLockedForTransit(door.NodeB, door.SocketB);
 
-        private bool IsSocketBlockedForTransit(string nodeId, string socketId)
+        /// <summary>Живая дверь связи заперта или выключена (по состоянию сокета сцены, без сцены — раскладки).</summary>
+        private bool IsLiveSocketBlockedForTransit(string nodeId, string socketId)
         {
             if (string.IsNullOrEmpty(nodeId) || string.IsNullOrEmpty(socketId))
             {
@@ -821,6 +907,43 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                    && placed.DoorStates != null
                    && placed.DoorStates.TryGetValue(socketId, out DoorState state)
                    && (state == DoorState.Locked || state == DoorState.Disabled);
+        }
+
+        /// <summary>
+        /// Сторона To связи: выключенный или спрятанный дубль проход не закрывает — закрывает только живая
+        /// запертая дверь. Без сцены «выключена» в раскладке значит то же: дубля, а не закрытого прохода.
+        /// </summary>
+        private bool IsDuplicateSocketLockedForTransit(string nodeId, string socketId)
+        {
+            if (string.IsNullOrEmpty(nodeId) || string.IsNullOrEmpty(socketId))
+            {
+                return false;
+            }
+
+            if (_roomInstances != null && _roomInstances.TryGetValue(nodeId, out RoomInstance instance)
+                && instance != null)
+            {
+                IReadOnlyList<DoorSocket> doors = instance.Doors;
+                for (int i = 0; doors != null && i < doors.Count; i++)
+                {
+                    DoorSocket door = doors[i];
+                    if (door != null
+                        && string.Equals(door.SocketId, socketId, StringComparison.Ordinal)
+                        && door.enabled
+                        && door.gameObject.activeSelf
+                        && door.State == DoorState.Locked)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            return _placedByNodeId.TryGetValue(nodeId, out PlacedRoom placed)
+                   && placed.DoorStates != null
+                   && placed.DoorStates.TryGetValue(socketId, out DoorState state)
+                   && state == DoorState.Locked;
         }
 
         /// <summary>
@@ -895,6 +1018,77 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
 
                     _routeHintGeometry.AddDoor(connection.FromNodeId, connection.FromSocketId, connection.ToNodeId,
                         connection.ToSocketId, point, openingWidth);
+                }
+            }
+
+            AddRouteHintObstacles(rooms);
+        }
+
+        /// <summary>
+        /// Сплошные предметы на полу каждой комнаты сцены — в геометрию подсказки: путь обходит их контуры с тем же
+        /// запасом, что и стены, и не режет стул или стол насквозь. Пол комнаты — высота её корня (комнаты
+        /// ставятся генератором полом на сетку); стены миникарты (их корни у шаблона) уже стены и сюда не идут.
+        /// Предметы, появившиеся после связывания уровня, в снимок не попадают.
+        /// </summary>
+        private void AddRouteHintObstacles(IReadOnlyList<MinimapRoomSnapshot> rooms)
+        {
+            if (_roomInstances == null)
+            {
+                return;
+            }
+
+            float stepMeters = Settings.RouteHintFloorMaxStepMeters;
+            List<Transform> excludedRoots = new();
+            List<RouteHintObstacle> obstacles = new();
+            for (int i = 0; i < rooms.Count; i++)
+            {
+                MinimapRoomSnapshot room = rooms[i];
+                if (!_roomInstances.TryGetValue(room.NodeId, out RoomInstance instance) || instance == null)
+                {
+                    continue;
+                }
+
+                CollectWallRoots(instance, excludedRoots);
+                float floorArea = 0f;
+                for (int c = 0; c < room.Cells.Count; c++)
+                {
+                    floorArea += room.Cells[c].Width * room.Cells[c].Depth;
+                }
+
+                RouteHintObstacleCollector.Collect(instance.transform, instance.transform.position.y, floorArea,
+                    stepMeters, excludedRoots, obstacles);
+                for (int o = 0; o < obstacles.Count; o++)
+                {
+                    _routeHintGeometry.AddObstacle(room.NodeId, obstacles[o]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Корни стен миникарты шаблона, кроме корня самой комнаты: когда стены не выделены в отдельный корень,
+        /// исключить весь корень значило бы исключить и мебель.
+        /// </summary>
+        private static void CollectWallRoots(RoomInstance instance, List<Transform> output)
+        {
+            output.Clear();
+            RoomTemplate template = instance.Template;
+            if (template == null)
+            {
+                return;
+            }
+
+            Transform roomRoot = instance.transform;
+            if (template.MinimapWallParent != null && template.MinimapWallParent.transform != roomRoot)
+            {
+                output.Add(template.MinimapWallParent.transform);
+            }
+
+            IReadOnlyList<Transform> roots = template.MinimapWallRoots;
+            for (int i = 0; roots != null && i < roots.Count; i++)
+            {
+                if (roots[i] != null && roots[i] != roomRoot)
+                {
+                    output.Add(roots[i]);
                 }
             }
         }
@@ -973,55 +1167,70 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         /// Всё, что живёт поверх кэша геометрии, с ОДНОЙ проекцией на кадр: проявляющиеся комнаты,
         /// подсказка маршрута, маркер выхода, колбы. Рисует только Repaint.
         /// </summary>
-        private void DrawLiveLayers(IReadOnlyList<MinimapRoomSnapshot> rooms, MapProjection projection, bool fullMap)
+        private void DrawLiveLayers(IReadOnlyList<MinimapRoomSnapshot> rooms, MapProjection projection, bool fullMap,
+            Rect mapRect)
         {
             if (Event.current != null && Event.current.type != EventType.Repaint)
             {
                 return;
             }
 
-            DrawRevealingRooms(rooms, projection, fullMap);
+            DrawRevealingRooms(rooms, projection, fullMap, mapRect);
             DrawRouteHint(rooms, projection, fullMap);
             DrawGoalMarker(rooms, projection, fullMap);
             DrawFragmentMarkers(projection, fullMap);
         }
 
         /// <summary>
-        /// Комнаты, которые ещё проявляются, и их связи — живым слоем поверх кэша. В кэш они попадают
-        /// один раз, когда проявление доиграло (<see cref="UpdateRoomReveals"/>).
+        /// Комнаты, которые ещё проявляются, и их связи — отдельным слоем поверх кэша (см.
+        /// <see cref="BakeAndDrawRevealLayer"/>). В кэш они попадают один раз, когда проявление доиграло
+        /// (<see cref="UpdateRoomReveals"/>).
         /// </summary>
-        private void DrawRevealingRooms(IReadOnlyList<MinimapRoomSnapshot> rooms, MapProjection projection, bool fullMap)
+        private void DrawRevealingRooms(IReadOnlyList<MinimapRoomSnapshot> rooms, MapProjection projection, bool fullMap,
+            Rect mapRect)
         {
             if (!_session.HasRevealAnimations)
             {
                 return;
             }
 
-            float now = Time.unscaledTime;
-            float duration = RoomRevealAnimationSeconds;
             try
             {
-                for (int i = 0; i < rooms.Count; i++)
-                {
-                    MinimapRoomSnapshot room = rooms[i];
-                    if (!_session.IsRevealAnimating(room.NodeId))
-                    {
-                        continue;
-                    }
-
-                    _roomRevealProgress = _session.GetRevealProgress(room.NodeId, now, duration);
-                    DrawRoomGeometry(room, projection, fullMap);
-                    if (drawRoomConnections && !simplifiedDrawing)
-                    {
-                        DrawRevealingConnections(rooms, room, projection, fullMap);
-                    }
-                }
+                BakeAndDrawRevealLayer(rooms, projection, fullMap, mapRect);
             }
             finally
             {
                 _roomRevealProgress = 1f;
                 GUI.color = Color.white;
             }
+        }
+
+        /// <summary>
+        /// Геометрия проявляющихся комнат в слой проявления (GL): у каждой комнаты свой цвет проявления
+        /// (<see cref="ApplyRoomRevealTint"/>), поэтому прогресс выставляется перед каждой.
+        /// </summary>
+        private void DrawRevealingRoomGeometry(IReadOnlyList<MinimapRoomSnapshot> rooms, MapProjection projection,
+            bool fullMap)
+        {
+            float now = Time.unscaledTime;
+            float duration = RoomRevealAnimationSeconds;
+            for (int i = 0; i < rooms.Count; i++)
+            {
+                MinimapRoomSnapshot room = rooms[i];
+                if (!_session.IsRevealAnimating(room.NodeId))
+                {
+                    continue;
+                }
+
+                _roomRevealProgress = _session.GetRevealProgress(room.NodeId, now, duration);
+                DrawRoomGeometry(room, projection, fullMap);
+                if (drawRoomConnections && !simplifiedDrawing)
+                {
+                    DrawRevealingConnections(rooms, room, projection, fullMap);
+                }
+            }
+
+            _roomRevealProgress = 1f;
         }
 
         private void DrawRevealingConnections(
@@ -1051,8 +1260,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                     continue;
                 }
 
-                Vector2 a = ProjectWorld(Average(BuildRoomWorldCorners(room)), projection);
-                Vector2 b = ProjectWorld(Average(BuildRoomWorldCorners(other)), projection);
+                Vector2 a = ProjectWorld(GetRoomGeometry(room).Center, projection);
+                Vector2 b = ProjectWorld(GetRoomGeometry(other).Center, projection);
                 DrawLine(a, b, 3.6f, shadow);
                 DrawLine(a, b, 1.5f, color);
             }
@@ -1082,7 +1291,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
 
             LevelMinimapSettings config = Settings;
             EnsureRouteHintTextures(config);
-            BuildRouteHintScreenWalls(rooms, projection);
+            float sizeScale = fullMap ? config.RouteHintFullMapSizeMultiplier : 1f;
+            BuildRouteHintScreenWalls(rooms, projection, MaxRouteHintRequestedRadiusPixels(config, sizeScale));
             float totalLength = BuildRouteHintScreenPath(projection, fullMap);
             if (totalLength <= 1f)
             {
@@ -1091,7 +1301,6 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
 
             float drawOn = 1f - Mathf.Pow(1f - _routeHintDrawOn, 3f);
             float visibleLength = totalLength * drawOn;
-            float sizeScale = fullMap ? config.RouteHintFullMapSizeMultiplier : 1f;
             float startGap = PlayerMarkerPixelSize(projection.Scale) * 0.55f;
             float time = Time.time;
 
@@ -1114,9 +1323,94 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             GUI.color = Color.white;
         }
 
-        private void BuildRouteHintScreenWalls(IReadOnlyList<MinimapRoomSnapshot> rooms, MapProjection projection)
+        /// <summary>
+        /// Наибольший радиус, который пунктир (или линия) может попросить у стен на этой карте: точка с волной
+        /// размера и кантом, ореол линии. Стены дальше этого радиуса (с толщиной штриха и зазором) не могут
+        /// уменьшить ни одну точку, и проецировать их незачем.
+        /// </summary>
+        internal static float MaxRouteHintRequestedRadiusPixels(LevelMinimapSettings config, float sizeScale)
+        {
+            float dot = config.RouteHintDotRadiusPixels * sizeScale * (0.8f + 0.35f) / (1f - RouteHintDotRimFraction);
+            float width = config.RouteHintLineWidthPixels * sizeScale;
+            float line = Mathf.Max(width * 3.2f, width + 2f, width * 1.2f) * 0.5f;
+            return Mathf.Max(dot, line);
+        }
+
+        /// <summary>
+        /// Экранные стены, о которые подгоняется пунктир. Не все стены показанных комнат, а только ближние к
+        /// линии подсказки: их отбор (<see cref="RefreshRouteHintNearWalls"/>) делается в мире один раз на смену
+        /// линии или раскрытых комнат и отсортирован по расстоянию до охвата линии. Здесь берутся лишь те, что
+        /// ближе досягаемости точки на этом масштабе, — остальные не влияют ни на один подогнанный радиус
+        /// (минимум по стенам не меняется от стен, которые дальше запрошенного радиуса), поэтому результат тот же,
+        /// что при проекции всех стен.
+        /// </summary>
+        internal void BuildRouteHintScreenWalls(IReadOnlyList<MinimapRoomSnapshot> rooms, MapProjection projection,
+            float maxRequestedRadiusPixels)
         {
             _routeHintScreenWalls.Clear();
+            RefreshRouteHintNearWalls(rooms);
+            float reachMeters = (maxRequestedRadiusPixels + RouteHintScreenClearance.MaxWallReachPaddingPixels)
+                                / Mathf.Max(0.0001f, projection.Scale);
+            for (int i = 0; i < _routeHintNearWalls.Count; i++)
+            {
+                RouteHintNearWall near = _routeHintNearWalls[i];
+                if (near.DistanceMeters > reachMeters)
+                {
+                    break;
+                }
+
+                RouteHintWall wall = near.Wall;
+                float strokeRadius = RouteHintScreenClearance.WallStrokeRadiusPixels(wall.WidthMeters, projection.Scale);
+                _routeHintScreenWalls.Add(new RouteHintScreenWall(
+                    ProjectWorld(wall.A, projection), ProjectWorld(wall.B, projection), strokeRadius));
+            }
+        }
+
+        /// <summary>Экранные стены последней сборки (тестам: сравнить с проекцией всех стен).</summary>
+        internal IReadOnlyList<RouteHintScreenWall> RouteHintScreenWalls => _routeHintScreenWalls;
+
+        /// <summary>
+        /// Стены показанных комнат с расстоянием от каждой до охвата линии подсказки (мир, метры), по возрастанию.
+        /// Пересобирается при смене точек линии, раскрытых комнат или геометрии подсказки — не каждый кадр и не
+        /// на каждую карту. Линия и её видимая часть лежат внутри охвата своих точек, поэтому расстояние до охвата
+        /// — нижняя граница расстояния от любой точки пунктира до стены.
+        /// </summary>
+        private void RefreshRouteHintNearWalls(IReadOnlyList<MinimapRoomSnapshot> rooms)
+        {
+            if (_routeHintNearWallsRevision == _routeHintTrail.Revision
+                && _routeHintNearWallsRevealVersion == _session.RevealVersion
+                && _routeHintNearWallsGeometryVersion == _routeHintGeometry.Version
+                && ReferenceEquals(_routeHintNearWallsRooms, rooms)
+                && _routeHintNearWallsRoomCount == rooms.Count)
+            {
+                return;
+            }
+
+            _routeHintNearWallsRevision = _routeHintTrail.Revision;
+            _routeHintNearWallsRevealVersion = _session.RevealVersion;
+            _routeHintNearWallsGeometryVersion = _routeHintGeometry.Version;
+            _routeHintNearWallsRooms = rooms;
+            _routeHintNearWallsRoomCount = rooms.Count;
+            _routeHintNearWalls.Clear();
+            IReadOnlyList<Vector2> points = _routeHintTrail.Points;
+            if (points.Count == 0)
+            {
+                return;
+            }
+
+            float minX = float.MaxValue;
+            float minY = float.MaxValue;
+            float maxX = float.MinValue;
+            float maxY = float.MinValue;
+            for (int i = 0; i < points.Count; i++)
+            {
+                minX = Mathf.Min(minX, points[i].x);
+                minY = Mathf.Min(minY, points[i].y);
+                maxX = Mathf.Max(maxX, points[i].x);
+                maxY = Mathf.Max(maxY, points[i].y);
+            }
+
+            Rect bounds = Rect.MinMaxRect(minX, minY, maxX, maxY);
             for (int i = 0; i < rooms.Count; i++)
             {
                 if (!_routeHintGeometry.TryGetRoom(rooms[i].NodeId, out RouteHintRoom room))
@@ -1128,11 +1422,32 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 for (int j = 0; j < walls.Count; j++)
                 {
                     RouteHintWall wall = walls[j];
-                    float strokeRadius = (Mathf.Clamp(wall.WidthMeters * projection.Scale, 1.8f, 4f) + 2f) * 0.5f;
-                    _routeHintScreenWalls.Add(new RouteHintScreenWall(
-                        ProjectWorld(wall.A, projection), ProjectWorld(wall.B, projection), strokeRadius));
+                    _routeHintNearWalls.Add(new RouteHintNearWall(wall,
+                        RouteHintScreenClearance.SegmentDistanceToRect(wall.A, wall.B, bounds)));
                 }
             }
+
+            _routeHintNearWalls.Sort(RouteHintNearWallComparer.Instance);
+        }
+
+        private readonly struct RouteHintNearWall
+        {
+            public readonly RouteHintWall Wall;
+            public readonly float DistanceMeters;
+
+            public RouteHintNearWall(RouteHintWall wall, float distanceMeters)
+            {
+                Wall = wall;
+                DistanceMeters = distanceMeters;
+            }
+        }
+
+        /// <summary>Сортировка стен по расстоянию до линии; один экземпляр без состояния — без аллокаций на сортировку.</summary>
+        private sealed class RouteHintNearWallComparer : IComparer<RouteHintNearWall>
+        {
+            public static readonly RouteHintNearWallComparer Instance = new();
+
+            public int Compare(RouteHintNearWall x, RouteHintNearWall y) => x.DistanceMeters.CompareTo(y.DistanceMeters);
         }
 
         /// <summary>Screen points of the drawn trail: its visible start, then every shared point beyond it.</summary>
@@ -1451,6 +1766,37 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
     {
         private const float ScreenGapPixels = 0.75f;
         private const float MinimumVisibleRadiusPixels = 0.65f;
+
+        /// <summary>Наибольший полуштрих стены миникарты: (4 + 2) / 2 пикселя.</summary>
+        private const float MaxWallStrokeRadiusPixels = 3f;
+
+        /// <summary>
+        /// Сколько к запрошенному радиусу точки добавить, чтобы стена дальше этого расстояния точно не влияла на
+        /// подгонку: полуштрих стены, зазор и пиксель запаса на округление проекции.
+        /// </summary>
+        public const float MaxWallReachPaddingPixels = MaxWallStrokeRadiusPixels + ScreenGapPixels + 1f;
+
+        /// <summary>Полуштрих стены на экране — так же, как её рисует миникарта (тень на 2 px шире линии).</summary>
+        public static float WallStrokeRadiusPixels(float wallWidthMeters, float pixelsPerMeter) =>
+            (Mathf.Clamp(wallWidthMeters * pixelsPerMeter, 1.8f, 4f) + 2f) * 0.5f;
+
+        /// <summary>Расстояние от отрезка до прямоугольника (0, если пересекаются или отрезок внутри).</summary>
+        public static float SegmentDistanceToRect(Vector2 a, Vector2 b, Rect rect)
+        {
+            if (rect.Contains(a) || rect.Contains(b))
+            {
+                return 0f;
+            }
+
+            Vector2 c0 = new(rect.xMin, rect.yMin);
+            Vector2 c1 = new(rect.xMax, rect.yMin);
+            Vector2 c2 = new(rect.xMax, rect.yMax);
+            Vector2 c3 = new(rect.xMin, rect.yMax);
+            float best = Mathf.Min(
+                Mathf.Min(SegmentDistanceSquared(a, b, c0, c1), SegmentDistanceSquared(a, b, c1, c2)),
+                Mathf.Min(SegmentDistanceSquared(a, b, c2, c3), SegmentDistanceSquared(a, b, c3, c0)));
+            return Mathf.Sqrt(best);
+        }
 
         public static float AvailableRadius(Vector2 from, Vector2 to, IReadOnlyList<RouteHintScreenWall> walls)
         {

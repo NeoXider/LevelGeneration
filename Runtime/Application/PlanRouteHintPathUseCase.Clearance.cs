@@ -18,7 +18,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
 
     /// <summary>
     /// Clearance-aware routing inside one room (<see cref="RouteHintPathOptions"/>). A leg between two points of a
-    /// room is searched on a visibility graph whose edges keep a wall clearance; the clearance steps down
+    /// room is searched on a visibility graph whose edges keep a clearance from walls and from the outlines of solid
+    /// props on the floor (<see cref="RouteHintRoom.Blockers"/>); the clearance steps down
     /// (full, three quarters, a little over half) before the legacy 0.45 m search takes over, so a narrow room
     /// never loses its route. Doorways are entered and left through an approach point straight in front of
     /// the door, and an endpoint that stands too close to a wall (student, task panel) is pulled to the nearest
@@ -295,14 +296,14 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         /// <summary>The whole segment lies on the floor and keeps <paramref name="clearance"/> from every wall surface.</summary>
         private static bool IsSegmentClear(RouteHintRoom room, Vector2 from, Vector2 to, float clearance)
         {
-            if (!IsCoveredByFloor(room, from, to))
+            if (!IsCoveredByFloor(room, from, to) || room.IsInsideObstacle(from) || room.IsInsideObstacle(to))
             {
                 return false;
             }
 
-            for (int i = 0; i < room.Walls.Count; i++)
+            for (int i = 0; i < room.Blockers.Count; i++)
             {
-                RouteHintWall wall = room.Walls[i];
+                RouteHintWall wall = room.Blockers[i];
                 float limit = wall.WidthMeters * 0.5f + clearance;
                 if (Mathf.Max(from.x, to.x) + limit < Mathf.Min(wall.A.x, wall.B.x)
                     || Mathf.Min(from.x, to.x) - limit > Mathf.Max(wall.A.x, wall.B.x)
@@ -341,11 +342,11 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                 }
             }
 
-            for (int i = 0; i < room.Walls.Count; i++)
+            for (int i = 0; i < room.Blockers.Count; i++)
             {
-                RouteHintWall wall = room.Walls[i];
+                RouteHintWall wall = room.Blockers[i];
                 Vector2 direction = (wall.B - wall.A).normalized;
-                if (direction.sqrMagnitude < 0.5f)
+                if (wall.IsObstacleEdge || direction.sqrMagnitude < 0.5f)
                 {
                     continue;
                 }
@@ -362,6 +363,19 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                 AddClearCandidate(room, candidates, wall.A - direction * offset - normal * offset, clearance);
                 AddClearCandidate(room, candidates, wall.B + direction * offset + normal * offset, clearance);
                 AddClearCandidate(room, candidates, wall.B + direction * offset - normal * offset, clearance);
+            }
+
+            // Предметы обходятся по углам: одна точка на угол (см. TryObstacleCornerDetour), а не четыре на сторону.
+            float obstacleOffset = Mathf.Max(0.22f, clearance + 0.05f);
+            for (int i = 0; i < room.Obstacles.Count; i++)
+            {
+                for (int corner = 0; corner < 4; corner++)
+                {
+                    if (TryObstacleCornerDetour(room.Obstacles[i], corner, obstacleOffset, out Vector2 detour))
+                    {
+                        AddClearCandidate(room, candidates, detour, clearance);
+                    }
+                }
             }
 
             int count = candidates.Count;

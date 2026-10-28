@@ -1,5 +1,115 @@
 # Neoxider LevelGeneration Changelog
 
+## 4.1.0 — 2026-10-28 fix: детерминизм сида, честные лабиринты, ключ до замка, путь в обход предметов
+
+Раскладка для того же сида меняется (правильная дверь лабиринта, заглушки, бюджет размещения): чекпойнты миссий
+со старым сидом надо сбросить.
+
+- **Правильная дверь лабиринта — по сиду.** `SocketBacktrackingRoomPlacer` назначает двери комнаты-лабиринта
+  (`MazeDoorPlan` → `MazeDoorAssignment`) независимо от позы: правильная выбирается ГСЧ сида среди дверей ответа,
+  неверные — из остальных; каждый перезапуск поиска берёт следующую по кругу дверь, так что неудачный выбор не
+  повторяется во всех перезапусках. Раньше правильной почти всегда была дверь «прямо по курсу» (мировой угол ≈ 0°).
+  Тесты: `Place_MazeCorrectAnswerDoor_IsChosenBySeed_NotAlwaysStraightAhead`,
+  `Place_DenseMazeBranchRoles_AssignEachAnswerSocketExactlyOnce`, `Place_FailingCorrectDoorAssignment_IsRotatedOnRestart`.
+- **Заглушки неверных ответов никогда не ставятся с наложением и не блокируют обязательные комнаты.** Место под
+  них резервируется при постановке лабиринта: позы, где заглушка не помещается, идут в конец очереди, подходящие
+  заглушки ставятся тем же шагом поиска. Если поддерево под таким кандидатом провалилось, поиск повторяет того же
+  кандидата без резерва (заглушки — в конце и только без наложения), поэтому заглушка не может занять место
+  тоннеля правильного ответа. Не поместившаяся заглушка не размещается; `MissionGenerator` убирает её из графа
+  (`MazeWrongAnswerDeadEnds` — общий набор best-effort узлов для размещения и проверки покрытия), дверь
+  запечатывается, в `LastWarnings` — предупреждение с той самой дверью ответа (`RoomPlacementReport` через
+  `IReportingRoomPlacer`). `LevelValidator`: пересечение с основным путём или любой не-тупиковой комнатой — ошибка
+  (сид отклоняется), предупреждение — только две заглушки `DeadEnd`; проверяются все пары, а не до первого
+  пересечения. Тесты: `Place_ReservedCapThatWouldBlockTheCorrectSuccessor_IsDeferredInsteadOfFailing`,
+  `Place_ReservesWrongAnswerCapBeforeTheMainPathContinues`, `Place_MazePoseWhereTheCapFits_IsPreferredOverAPoseWhereItDoesNot`,
+  `Place_WrongAnswerCapThatCannotFit_IsNotForcePlacedWithOverlap`, `Place_Report_NamesTheMazeDoorOfAnUnplacedCap`,
+  `BuildLayout_WrongAnswerCapThatDoesNotFit_IsSealedWithWarning_NeverOverlapped`,
+  `Validate_DeadEndCapOverlappingNonDeadEndRoom_IsError`, `Validate_ReportsEveryOverlap_SoADeadEndWarningCannotHideAnError`.
+- **Исход сида не зависит от часов.** Убран лимит стадии размещения по времени (`max(500 мс, 0.4 бюджета)`) и
+  переход «таймаут стадии → следующий сид» в обход TrimBranches/MandatoryOnly. Размещение ограничено счётным
+  бюджетом `SocketBacktrackingRoomPlacer.CandidateEvaluationBudget` (оценённые позы; по умолчанию
+  `max(40000, узлы × 2000)`), исчерпанная стадия переходит к следующей стадии того же сида. Часы
+  (`GenerationTimeout` × `GenerationTimeBudgetMultiplier`) только прерывают прогон `TimeoutException`; граф V2
+  стадии строится без собственного таймера. Часы прогона подставляемые (`IGenerationClock`,
+  `MissionGenerator.GenerationClockFactory`; с ними системный таймер не взводится). Исправлены ложные комментарии о
+  детерминизме (`MissionGenerator`, `LayoutPacingMissionGenerator.ResolveRetryStages`). Для калибровки бюджета в
+  `LastDebugCounters`: `CandidateEvaluations`/`PlacementBudgetExhaustions` (последняя попытка) и
+  `RunCandidateEvaluations`, `RunMaxCandidateEvaluationsPerAttempt`, `RunPlacementBudgetExhaustions` (весь прогон).
+  Тесты: `BuildLayout_SameSeedProducesSameLayout_RegardlessOfTimeBudgetAndMultiplier` (синхронный и кооперативный
+  путь, подставные часы), `BuildLayout_RunOverItsTimeBudget_AbortsWithTimeout_InsteadOfSwitchingSeed`,
+  `Place_ExhaustedCandidateBudget_StopsDeterministically`.
+- **Ключ не ставится за собственный замок, у замка всегда есть ключ.** `KeyLockReachability`: ключ годится, только
+  если до него дойти от старта, не входя в комнату-замок; на заглушку неверного ответа (best-effort, её могут убрать)
+  ключ не ставится. Один обход у генератора (`FindBestSourceNode`) и у валидатора (`ValidateDependencyHints`,
+  проверка каждого замка). Замок без достижимого ключа — `KeyDependencyUnsatisfied`: генератор отклоняет стадию до
+  размещения, валидатор — раскладку, где замок поставлен, а ключа нет. Тесты:
+  `BuildLayout_DependencyHintNeverPutsKeyBehindItsOwnLock`, `BuildLayout_RejectsLockWhoseOnlyKeyCandidateIsBehindIt`,
+  `BuildLayout_DependencyHintNeverPutsKeyOnWrongAnswerDeadEnd`, `Validate_RejectsKeyPlacedBehindItsOwnLock`,
+  `Validate_RejectsLockWithoutAnyKeyRoom`, `Validate_AcceptsKeyBeforeItsLock`.
+- **Нет общего статического состояния предупреждений.** Удалён `SocketBacktrackingRoomPlacer.ForcedMazeDeadEndWarnings`;
+  предупреждения о заглушках — в `MissionGenerator.LastWarnings` экземпляра. Тест: `Placer_KeepsNoStaticMutableCollections`
+  (типы полей и сами значения, включая вложенные типы).
+- **Повторяющийся id подключаемого сокета — явная ошибка.** `DoorSocketIdRules`: `DuplicateDoorSocketId` с именем
+  комнаты и сокета до размещения (`MissionGenerator`), в `LevelValidator` и в `RoomPrefabGridValidator.ValidatePrefab`.
+  Раньше такие двери молча делили одно состояние. Тесты: `Validate_RejectsRoomTemplateWithDuplicateConnectableSocketIds`,
+  `BuildLayout_RejectsDuplicateConnectableSocketIdsBeforePlacement`, `ValidatePrefab_RejectsDuplicateSocketIds`,
+  `DoorSocketIdRules_IgnoresDuplicatesAmongNonConnectableSockets`.
+- **Случайные касания дверей.** `IncidentalDoorContactMode` (`Seal` по умолчанию, `ConnectOutsideGraph` — песочница)
+  и конструктор `DoorConnector(IncidentalDoorContactMode)`; `DoorConnector(true)` = `ConnectOutsideGraph`.
+  Генератор миссий проверяет топологию по графу, поэтому для него — `new DoorConnector()`; при `true`
+  `MissionGenerator` пишет предупреждение. Тесты: `Connect_IncidentalDoorContactMode_SealsByDefault_AndConnectsOnlyOutsideGraphWhenAsked`,
+  `BuildLayout_WarnsWhenDoorConnectorConnectsIncidentalContactsOutsideGraph`.
+- **Производительность (исход прежний).** Строки причин отказа — только при включённой трассировке; дешёвые
+  отказы (замок, размер, рама) — до построения позы; начальные состояния дверей — одна копия на шаблон; стены
+  позы-кандидата — в переиспользуемый буфер, синус/косинус — раз на трансформацию. `LevelValidator`: стены каждой
+  комнаты трансформируются один раз, AABB-broadphase перед SAT, соединения — по словарю. `MissionGenerator`:
+  снимки шаблонов, пул тупиков, подсказки зависимостей и план контента V2 — раз на прогон; диагностические
+  строки строятся только при `DiagnosticLogsEnabled`.
+- **Лицензия.** Начиная с 4.1.0 пакет выпускается под PolyForm Small Business 1.0.0 (`LICENSE.md`): бесплатно для
+  личного и некоммерческого использования и для малого бизнеса; крупным компаниям нужна коммерческая лицензия.
+  Прежние версии остаются под своей лицензией.
+- **Контракт раскладки.** `LevelGenerationPackageInfo.LayoutContract` (сейчас `2`) меняется, только когда тот же
+  сид и та же конфигурация дают другую раскладку — как в 4.1.0. Хозяин, сохраняющий прогресс по сиду, хранит
+  это значение и начинает прогон заново, если оно другое, а не раскладывает сохранённые id комнат по чужим
+  комнатам. Известное ограничение генерации: при нескольких парах ключ/замок взаимная блокировка (ключ
+  первого замка за вторым замком и наоборот) не отсекается — проверяется каждая пара по отдельности.
+- **Ломающее изменение API хозяина карты.** `IMinimapGameplayContext.IsGameplayKeyboardBlocked` заменён на
+  `WasFullMapTogglePressed`: хозяин сам читает свою клавишу большой карты и молчит, пока клавиатурой владеет UI.
+  Пакет больше не ищет менеджер ввода через reflection; без хозяина — `M` старого менеджера ввода, если он включён.
+  Тест-страж `PackageRuntime_UsesNoReflection`.
+- **Подсказка пути обходит предметы.** Раньше планировщик знал только стены миникарты: путь шёл впритирку к стенам
+  и сквозь мебель, а со стола — через стул на высоте стола. Теперь `RouteHintGeometry` знает препятствия
+  (`RouteHintObstacle`, выпуклые следы твёрдых коллайдеров; классификация — `ClassifyRouteHintColliderUseCase`,
+  сбор — `RouteHintObstacleCollector`): путь держит отступ от стен и предметов и никогда их не пересекает; старт
+  внутри предмета (на столе) сначала сходит на ближайший свободный пол; лента пути спускается со стола, а не
+  висит на его высоте (`ResolveRouteHintFloorHeightUseCase` принимает спуск). Шаг со стола проверяется всем
+  отрезком, а не только точкой схода: пересечь можно только край своего предмета, но не стену и не соседний
+  предмет (скамья, придвинутая к столу), и так же для запасного круга точек. Предмет обходится по углам: одна
+  точка обхода на угол по внешней биссектрисе (`TryObstacleCornerDetour`) вместо четырёх на сторону — граф
+  видимости обставленной комнаты меньше в четыре раза, пар проверки — в шестнадцать. Тесты
+  `RouteHintObstacleTests` (в том числе стол со скамьёй, запасной круг у шкафа, комната с 40 предметами).
+  Известное ограничение: если между предметами нет прохода шире плеча ученика или дверь стоит на помосте выше
+  шага, подсказки в этой комнате нет (исход `Unreachable`) — проходимый помост помечается не коллайдером-коробкой.
+  Тесты: комнаты в `LevelMinimapControllerWiringTests` стоят вплотную по `LogicalCellSize` (прежний шаг 2 оставлял
+  пустую клетку, и тесты закрытого прохода проходили по ложной причине); спрайт отметки фрагмента в
+  `LevelMinimapRuntimeCostTests` читается с GPU — его текстура нечитаема намеренно.
+- **Настоящие соединения не считаются запертыми.** Проход решает дверь стороны «откуда»; сторона «куда» закрывает
+  его, только если там живая запертая дверь. Комната за дверью раскрывается на карте с обеих сторон
+  (`LevelMinimapSession.ScheduleRevealAcrossDoor`).
+- **Производительность миникарты.** Статический слой карты запекается один раз в мировой ориентации и рисуется
+  одним повёрнутым квадом (пересобирается только при изменении карты, настроек или размера, а не каждый кадр);
+  `OnGUI` рисует только на Repaint; камера, геометрия комнат и подписи фрагментов кэшируются; стены для подгонки
+  точек пути отбираются один раз по близости; высоты пола ленты пути пробуются раз на перестройку, а не на каждый
+  кадр смешивания; маркеры фрагментов — заранее запечённые спрайты. `AdaptiveLevelLoadingController.Bind` забывает
+  комнаты прошлой миссии. Тесты `LevelMinimapRuntimeCostTests` и расширенные тесты контроллера карты.
+  Повёрнутый слой кладётся на экран не матрицей GUI: IMGUI отсекает прямоугольник по группе до поворота, и при
+  любом взгляде, кроме «на север», карта выходила пустой. Слой каждый кадр одним GL-квадом поворачивается в
+  экранную текстуру размером с область карты (`Hidden/BlitCopy`), а она кладётся на экран без поворота. Слой
+  запекается без смешивания: смешивание по альфе в прозрачную текстуру возводило альфу в квадрат, и стены
+  бледнели до невидимости. Проверено в игре: миникарта и большая карта при повороте взгляда на 130°.
+  Шаг со стола: если чистого шага нет (стол обставлен со всех сторон), берётся ближайший свободный пол, а не
+  пропадает подсказка.
+
 ## 4.0.0 — 2026-10-28 change(runtime): пакет не зависит от игры
 
 - **Отдельный публичный репозиторий** https://github.com/NeoXider/LevelGeneration, лицензия PolyForm

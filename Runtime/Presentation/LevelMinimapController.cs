@@ -205,11 +205,46 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         private readonly Dictionary<string, List<Transform>> _fragmentCapsulesByNodeId =
             new(StringComparer.Ordinal);
 
+        /// <summary>
+        /// Сколько прямых детей было у комнаты при последнем разборе её колб. Колба спавнится ребёнком комнаты и
+        /// при сборе только гаснет, поэтому без смены числа детей список колб комнаты прежний — и имена детей
+        /// (каждое чтение <c>name</c> — новая строка) не читаются вовсе.
+        /// </summary>
+        private readonly Dictionary<string, int> _fragmentCapsuleChildCounts = new(StringComparer.Ordinal);
+
+        /// <summary>Комнаты сцены списком: обход <see cref="IReadOnlyDictionary{TKey,TValue}"/> аллоцирует перечислитель.</summary>
+        private readonly List<KeyValuePair<string, RoomInstance>> _roomInstanceList = new();
+
+        private readonly FragmentMarkerSprites _compactFragmentSprites = new();
+        private readonly FragmentMarkerSprites _fullMapFragmentSprites = new();
         private float _nextFragmentCapsuleScanTime;
         private int _fragmentCapsuleCount;
+        private int _fragmentCapsuleNameReadCount;
         private LevelLayout _layout;
         private IReadOnlyDictionary<string, RoomInstance> _roomInstances;
         private IDisposable _roomEnteredSubscription;
+
+        /// <summary>
+        /// Геометрия комнат карты (углы, центр, клетки, сведённые стены) в мире. Комнаты уровня не двигаются,
+        /// поэтому она считается один раз на комнату за Bind, а не на каждый кадр и каждое обращение.
+        /// </summary>
+        private readonly Dictionary<string, RoomMapGeometry> _roomGeometryByNodeId = new(StringComparer.Ordinal);
+
+        private int _roomGeometryBuildCount;
+
+        /// <summary>Камера взгляда игрока, найденная один раз, а не <c>GetComponentInChildren</c> на каждый кадр.</summary>
+        private Transform _lookCamera;
+
+        private Transform _lookCameraOwner;
+        private int _lookCameraOwnerChildCount = -1;
+        private float _nextLookCameraSearchTime = float.NegativeInfinity;
+        private int _lookCameraSearchCount;
+
+        /// <summary>Сколько секунд не искать камеру заново, если у игрока её не нашлось.</summary>
+        private const float LookCameraRetrySeconds = 1f;
+
+        /// <summary>Отпечаток состояний дверей показанных комнат: маркеры дверей запечены в кэш геометрии.</summary>
+        private int _doorStateSignature;
 
         private Texture2D _pixel;
 
@@ -220,12 +255,42 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         private bool _minimapTexturesLoaded;
         private bool _hasActiveMapClipRect;
         private Rect _activeMapClipRect;
+
+        /// <summary>
+        /// Кэш геометрии каждой карты — в МИРОВОЙ ориентации (без поворота и без привязки к игроку), на весь
+        /// охват показанных комнат. Перестраивается только при смене состояния карты, настроек или размера, а на
+        /// экран кладётся одним повёрнутым и сдвинутым прямоугольником. Раньше кэш строился в проекции кадра, и
+        /// ключ включал позицию и взгляд игрока: на ходу он перестраивался каждый кадр.
+        /// </summary>
         private readonly StaticMapCache _compactMapCache = new();
+
         private readonly StaticMapCache _fullMapCache = new();
+
+        /// <summary>
+        /// Проявляющиеся комнаты — тот же путь (GL в текстуру мировой ориентации, один прямоугольник на экран), но
+        /// каждый кадр анимации: цвет проявления меняется, и в кэш геометрии их класть нельзя.
+        /// </summary>
+        private readonly StaticMapCache _compactRevealLayer = new();
+
+        private readonly StaticMapCache _fullRevealLayer = new();
         private Material _staticMapMaterial;
+        private Material _layerBlitMaterial;
         private bool _isRenderingStaticMapCache;
         private int _staticMapStateVersion;
         private int _staticMapRebuildCount;
+        private int _revealLayerBakeCount;
+
+        /// <summary>Наибольшая сторона текстуры слоя карты: больше WebGL-устройства могут не принять.</summary>
+        private const int MaxWorldLayerTextureSize = 2048;
+
+        /// <summary>
+        /// Поля вокруг охвата слоя в пикселях слоя: толщина линий стен, ореол упрощённого режима и маркеры дверей
+        /// выходят за контур комнаты на несколько пикселей.
+        /// </summary>
+        private const float WorldLayerPaddingPixels = 8f;
+
+        /// <summary>Шаг округления размера текстуры слоя: соседние размеры охвата не пересоздают текстуру.</summary>
+        private const int WorldLayerTextureGranularity = 64;
 
         public LevelMinimapSession Session => _session;
 
@@ -244,6 +309,21 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         public float FullMapBackgroundAlpha => Mathf.Clamp01(fullMapBackgroundAlpha);
         public bool DrawDoorMarkers => drawDoorMarkers;
         public int StaticMapRebuildCount => _staticMapRebuildCount;
+
+        /// <summary>Сколько раз запекался слой проявляющихся комнат (только кадры анимации проявления).</summary>
+        internal int RevealLayerBakeCount => _revealLayerBakeCount;
+
+        /// <summary>Сколько раз считалась геометрия комнат карты (один раз на комнату за Bind).</summary>
+        internal int RoomGeometryBuildCount => _roomGeometryBuildCount;
+
+        /// <summary>Сколько раз искалась камера взгляда игрока.</summary>
+        internal int LookCameraSearchCount => _lookCameraSearchCount;
+
+        /// <summary>Сколько раз при разборе колб читались имена детей комнат (каждое чтение — новая строка).</summary>
+        internal int FragmentCapsuleNameReadCount => _fragmentCapsuleNameReadCount;
+
+        /// <summary>Сколько колб нашлось в комнатах при последнем разборе.</summary>
+        internal int FragmentCapsuleCount => _fragmentCapsuleCount;
 
         public bool SimplifiedDrawing
         {
@@ -273,7 +353,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             _roomEnteredSubscription = null;
             UnsubscribeDoorOpenings();
             _roomInstances = roomInstances;
+            RebuildRoomInstanceList(roomInstances);
             InvalidateFragmentCapsuleCache();
+            _roomGeometryByNodeId.Clear();
 
             if (layout == null)
             {
@@ -303,6 +385,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             RebuildWallTextures();
             BindRouteHint(layout, preserveRevealedRooms);
             SubscribeDoorOpenings();
+            _doorStateSignature = ComputeDoorStateSignature();
             MarkStaticMapDirty();
             if (roomEventBus != null)
             {
@@ -375,6 +458,12 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             MarkStaticMapDirty();
         }
 
+        /// <summary>
+        /// Карта не содержит ни одного IMGUI-элемента (кнопок, полей), поэтому раскладка ей не нужна: без
+        /// <c>useGUILayout = false</c> Unity зовёт <c>OnGUI</c> ещё и на событие Layout каждого кадра.
+        /// </summary>
+        private void Awake() => useGUILayout = false;
+
         private void OnDestroy()
         {
             _roomEnteredSubscription?.Dispose();
@@ -384,7 +473,22 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             DisposeStaticMapCaches();
             DestroyStaticMapMaterial();
             DestroyPixelTexture();
+            DestroyFragmentMarkerTextures();
             DestroyRouteHintResources();
+        }
+
+        private void RebuildRoomInstanceList(IReadOnlyDictionary<string, RoomInstance> roomInstances)
+        {
+            _roomInstanceList.Clear();
+            if (roomInstances == null)
+            {
+                return;
+            }
+
+            foreach (KeyValuePair<string, RoomInstance> entry in roomInstances)
+            {
+                _roomInstanceList.Add(entry);
+            }
         }
 
         private void DestroyPixelTexture()
@@ -415,9 +519,11 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 return;
             }
 
+            // Клавишу большой карты читает игра-хозяин (IMinimapGameplayContext): она же знает, когда клавиатурой
+            // владеет UI и `M` обязана молчать. Пакет устройства ввода не читает — ни напрямую, ни через reflection.
             IMinimapGameplayContext gameplay = MinimapGameplay.Context;
             RouteHintPresence presence = gameplay.Presence;
-            TickFrame(presence, presence == RouteHintPresence.Exploring && WasFullMapKeyPressed(gameplay),
+            TickFrame(presence, presence == RouteHintPresence.Exploring && gameplay.WasFullMapTogglePressed,
                 Time.deltaTime, Time.unscaledDeltaTime, Time.unscaledTime, Time.time);
             UpdateRouteHintDiagnostics(gameplay, presence, Time.deltaTime, Time.unscaledDeltaTime,
                 Time.unscaledTime);
@@ -438,6 +544,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
 
             UpdateRoomReveals(now);
+            RefreshDoorStateSignature();
             _playerPresence = presence;
             bool exploring = presence == RouteHintPresence.Exploring;
             UpdateRouteHint(deltaTime, scaledNow ?? now, _routeHint.Decision.HasTarget && exploring, now,
@@ -449,24 +556,69 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         }
 
         /// <summary>
-        /// `M` — геймплейная клавиша, и пока клавиатурой владеет UI, она обязана молчать. Без этой проверки
-        /// карта разворачивалась поверх открытого чата учителя: ученик печатал сообщение, и буква «m» уводила
-        /// пол-экрана под карту. Спрашиваем игру (<see cref="IMinimapGameplayContext.IsGameplayKeyboardBlocked"/>
-        /// — у неё общий арбитр ввода), а не конкретную панель, — тогда правило работает и для чата, и для
-        /// код-станции, и для любой будущей панели, не требуя знать о них здесь.
+        /// Маркеры дверей запечены в кэш геометрии вместе с цветом своего состояния, а у двери нет события
+        /// «состояние сменилось». Поэтому, пока маркеры дверей рисуются, кадр сверяет отпечаток состояний дверей
+        /// показанных комнат: открытый замок обязан перекрасить маркер, а не ждать следующей раскрытой комнаты.
+        /// Без маркеров состояние дверей кэшу безразлично, и сверки нет.
         /// </summary>
-        private static bool WasFullMapKeyPressed(IMinimapGameplayContext gameplay)
+        private void RefreshDoorStateSignature()
         {
-            if (gameplay.IsGameplayKeyboardBlocked)
+            if (!drawDoorMarkers)
             {
-                return false;
+                return;
             }
 
-            bool pressed = WasInputSystemMPressed();
-#if ENABLE_LEGACY_INPUT_MANAGER
-            pressed = pressed || Input.GetKeyDown(KeyCode.M);
-#endif
-            return pressed;
+            int signature = ComputeDoorStateSignature();
+            if (signature == _doorStateSignature)
+            {
+                return;
+            }
+
+            _doorStateSignature = signature;
+            MarkStaticMapDirty();
+        }
+
+        private int ComputeDoorStateSignature()
+        {
+            if (!drawDoorMarkers)
+            {
+                return 0;
+            }
+
+            unchecked
+            {
+                int signature = 17;
+                IReadOnlyList<MinimapRoomSnapshot> rooms = RoomsForDrawing();
+                for (int i = 0; i < rooms.Count; i++)
+                {
+                    string nodeId = rooms[i].NodeId;
+                    if (_roomInstances != null && _roomInstances.TryGetValue(nodeId, out RoomInstance instance)
+                        && instance != null && instance.Doors != null)
+                    {
+                        IReadOnlyList<DoorSocket> doors = instance.Doors;
+                        for (int d = 0; d < doors.Count; d++)
+                        {
+                            DoorSocket door = doors[d];
+                            signature = signature * 31 + (door != null ? (int)door.State + 1 : 0);
+                        }
+
+                        continue;
+                    }
+
+                    // Без сцены (превью, тесты) — состояния раскладки. Перечисление словаря здесь аллоцирует,
+                    // но в игре у каждой комнаты есть экземпляр, и этот путь не выполняется.
+                    if (_placedByNodeId.TryGetValue(nodeId, out PlacedRoom placed) && placed.DoorStates != null)
+                    {
+                        foreach (KeyValuePair<string, DoorState> state in placed.DoorStates)
+                        {
+                            signature = signature * 31 + (state.Key?.GetHashCode() ?? 0);
+                            signature = signature * 31 + (int)state.Value + 1;
+                        }
+                    }
+                }
+
+                return signature;
+            }
         }
 
         private void OnRoomEntered(RoomEnteredEvent evt)
@@ -485,40 +637,15 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
         }
 
-        private static bool WasInputSystemMPressed()
-        {
-            try
-            {
-                Type keyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
-                object keyboard = keyboardType
-                    ?.GetProperty("current",
-                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-                    ?.GetValue(null);
-                if (keyboard == null)
-                {
-                    return false;
-                }
-
-                object keyControl = keyboardType
-                    ?.GetProperty("mKey",
-                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
-                    ?.GetValue(keyboard);
-                Type keyControlType = keyControl?.GetType();
-                object value = keyControlType
-                    ?.GetProperty("wasPressedThisFrame",
-                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
-                    ?.GetValue(keyControl);
-                return value is bool pressed && pressed;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
+        /// <summary>
+        /// Карта рисует только на Repaint: элементов ввода в ней нет, а на Layout, мышь и клавиатуру IMGUI зовёт
+        /// <c>OnGUI</c> отдельно, и вся работа там была бы впустую (мини-карта уже была первой строкой профайлера).
+        /// </summary>
+        internal static bool IsDrawEvent(Event current) => current != null && current.type == EventType.Repaint;
 
         private void OnGUI()
         {
-            if (!drawRuntimeGui)
+            if (!drawRuntimeGui || !IsDrawEvent(Event.current))
             {
                 return;
             }
@@ -551,7 +678,10 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         {
             _layout = null;
             _roomInstances = null;
+            _roomInstanceList.Clear();
             _placedByNodeId.Clear();
+            _roomGeometryByNodeId.Clear();
+            _doorStateSignature = 0;
             InvalidateFragmentCapsuleCache();
             ClearWallTextures();
             _session.Reset();
@@ -612,9 +742,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 _activeMapClipRect = mapRect;
 
                 IReadOnlyList<MinimapRoomSnapshot> rooms = RoomsForDrawing();
-                bool cached = TryDrawOrBuildStaticMapCache(mapRect, fullMap, true);
                 MapProjection projection = default;
                 bool projected = rooms.Count > 0 && TryBuildProjection(rooms, mapRect, fullMap, out projection);
+                bool cached = TryDrawOrBuildStaticMapCache(mapRect, fullMap, projected, projection);
                 if (fullMap)
                 {
                     ReportFullMapDrawOnce(cached, rooms.Count, projected);
@@ -624,7 +754,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 // кэш в браузере не построился, пунктир всё равно обязан появиться.
                 if (projected)
                 {
-                    DrawLiveLayers(rooms, projection, fullMap);
+                    DrawLiveLayers(rooms, projection, fullMap, mapRect);
                     DrawPlayerMarker(ProjectPlayerPosition(projection), projection.Scale);
                 }
             }
@@ -637,6 +767,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
         }
 
+        /// <summary>Тестам: построить (если устарел) кэш геометрии карты без отрисовки.</summary>
+        internal bool WarmStaticMapCacheForTests(Rect rect, bool fullMap) => WarmStaticMapCache(rect, fullMap);
+
         private bool WarmStaticMapCache(Rect rect, bool fullMap)
         {
             if (!_session.HasActiveLevel)
@@ -646,51 +779,156 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
 
             EnsurePixel();
             Rect localRect = new(0f, 0f, rect.width, rect.height);
-            return TryDrawOrBuildStaticMapCache(localRect, fullMap, false);
+            return TryDrawOrBuildStaticMapCache(localRect, fullMap, false, default);
         }
 
-        private bool TryDrawOrBuildStaticMapCache(Rect localRect, bool fullMap, bool drawTexture)
+        /// <summary>
+        /// Строит (если устарел) кэш геометрии карты и, если задано, кладёт его на экран в проекции кадра. Ключ
+        /// кэша — состояние карты, настройки и размер области карты; позиция и взгляд игрока в него НЕ входят:
+        /// кэш лежит в мировой ориентации, а поворот и сдвиг кадра применяются при выводе.
+        /// </summary>
+        private bool TryDrawOrBuildStaticMapCache(Rect mapRect, bool fullMap, bool draw, MapProjection projection)
         {
-            if (localRect.width <= 1f || localRect.height <= 1f)
+            if (mapRect.width <= 1f || mapRect.height <= 1f)
             {
                 return false;
             }
 
             StaticMapCache cache = fullMap ? _fullMapCache : _compactMapCache;
-            ProjectionPoseKey poseKey = BuildProjectionPoseKey();
-            int width = Mathf.CeilToInt(localRect.width);
-            int height = Mathf.CeilToInt(localRect.height);
+            int width = Mathf.CeilToInt(mapRect.width);
+            int height = Mathf.CeilToInt(mapRect.height);
             int settingsHash = CalculateStaticMapSettingsHash(fullMap);
 
-            if (!cache.IsValid(width, height, _staticMapStateVersion, settingsHash, poseKey))
+            if (!cache.IsValid(width, height, _staticMapStateVersion, settingsHash))
             {
-                RebuildStaticMapCache(cache, fullMap, width, height, settingsHash, poseKey);
+                RebuildStaticMapCache(cache, fullMap, mapRect, width, height, settingsHash);
             }
 
-            if (cache.Texture == null)
+            if (draw)
             {
-                return false;
+                DrawWorldLayer(cache, projection, mapRect);
             }
 
-            if (drawTexture)
-            {
-                GUI.color = Color.white;
-                GUI.DrawTexture(localRect, cache.Texture);
-            }
-
-            return true;
+            return cache.Texture != null || cache.Status == StaticMapCacheStatus.Empty;
         }
 
         /// <summary>
-        /// Переводит клип геометрии в координаты ТЕКСТУРЫ кеша: снаружи клип задан в координатах
-        /// группы, со смещением на внутренний отступ карточки, и в пространстве текстуры срезал карту
-        /// сверху и слева на этот отступ, а снизу и справа уезжал за край и не срезал ничего.
-        /// Автоматического стража у этого пока нет — он требует чтения пикселей кеша.
+        /// Клип геометрии — в координатах ТЕКСТУРЫ слоя: снаружи клип задан в координатах группы карточки, со
+        /// смещением на внутренний отступ, и в пространстве текстуры срезал бы карту не там.
         /// </summary>
         private void BeginStaticCacheClip(int width, int height)
         {
             _hasActiveMapClipRect = true;
             _activeMapClipRect = new Rect(0f, 0f, width, height);
+        }
+
+        /// <summary>
+        /// Пикселей на метр, в которых запекается слой карты. Компактная карта — её собственный масштаб (он не
+        /// зависит от игрока). Большая вписывает комнаты с учётом поворота, и её масштаб меняется вместе со
+        /// взглядом; слой запекается в наибольшем из них — без поворота — и на экране только уменьшается.
+        /// </summary>
+        private bool TryResolveWorldLayerScale(IReadOnlyList<MinimapRoomSnapshot> rooms, Rect mapRect, bool fullMap,
+            out float scale)
+        {
+            scale = 0f;
+            if (rooms.Count == 0
+                || !TryBuildProjectionAtYaw(rooms, new Rect(0f, 0f, mapRect.width, mapRect.height), fullMap, 0f,
+                    out MapProjection reference))
+            {
+                return false;
+            }
+
+            scale = reference.Scale;
+            return scale > 0.001f;
+        }
+
+        /// <summary>
+        /// Кладёт слой мировой ориентации на экран одним прямоугольником: сдвиг и поворот кадра — матрицей GUI,
+        /// масштаб — отношением масштабов кадра и запекания. Рисуется только та часть текстуры, что может попасть
+        /// в область карты, и вложенная группа обрезает её точно по этой области.
+        /// </summary>
+        private void DrawWorldLayer(StaticMapCache layer, MapProjection projection, Rect mapRect)
+        {
+            if (layer.Texture == null || !layer.HasContent || projection.Scale <= 0.001f)
+            {
+                return;
+            }
+
+            int width = Mathf.CeilToInt(mapRect.width);
+            int height = Mathf.CeilToInt(mapRect.height);
+            RenderTexture target = width > 1 && height > 1 ? layer.EnsureScreenTexture(width, height) : null;
+            Material blit = EnsureLayerBlitMaterial();
+            if (target == null || blit == null)
+            {
+                ReportStaticMapCacheProblemOnce(target == null
+                    ? "the screen layer texture was not created"
+                    : "the blit shader 'Hidden/BlitCopy' is unavailable");
+                return;
+            }
+
+            // Поворот — не матрицей GUI: IMGUI отсекает прямоугольник по группе ДО поворота матрицы, и слой,
+            // лежащий в мировой ориентации, при любом взгляде, кроме «на север», отсекался целиком — карта была
+            // пустой. Слой кладётся GL-квадом в экранный кадр размером с область карты (лишнее отсекает сам
+            // кадр), а кадр — на экран без поворота. screen = topLeft + k · R(-yaw) · pixel.
+            float k = projection.Scale / layer.BakeScale;
+            Vector2 topLeft = ProjectWorld(layer.WorldTopLeft, projection) - mapRect.position;
+            float textureWidth = layer.TextureWidth;
+            float textureHeight = layer.TextureHeight;
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = target;
+            GL.PushMatrix();
+            try
+            {
+                GL.Clear(false, true, Color.clear);
+                GL.LoadPixelMatrix(0f, width, height, 0f);
+                blit.mainTexture = layer.Texture;
+                if (blit.SetPass(0))
+                {
+                    GL.Begin(GL.QUADS);
+                    GL.Color(Color.white);
+                    EmitLayerCorner(0f, 0f);
+                    EmitLayerCorner(textureWidth, 0f);
+                    EmitLayerCorner(textureWidth, textureHeight);
+                    EmitLayerCorner(0f, textureHeight);
+                    GL.End();
+                }
+            }
+            finally
+            {
+                GL.PopMatrix();
+                RenderTexture.active = previous;
+            }
+
+            GUI.color = Color.white;
+            GUI.DrawTexture(new Rect(mapRect.x, mapRect.y, width, height), target, ScaleMode.StretchToFill, true);
+
+            void EmitLayerCorner(float px, float py)
+            {
+                GL.TexCoord2(px / textureWidth, 1f - py / textureHeight);
+                Vector2 screen = topLeft + k * new Vector2(px * projection.RotateCos - py * projection.RotateSin,
+                    px * projection.RotateSin + py * projection.RotateCos);
+                GL.Vertex3(screen.x, screen.y, 0f);
+            }
+        }
+
+        /// <summary>
+        /// Копирование слоя в экранный кадр без смешивания: кадр очищен в прозрачный, и смешивание по альфе
+        /// возвело бы альфу слоя в квадрат.
+        /// </summary>
+        private Material EnsureLayerBlitMaterial()
+        {
+            if (_layerBlitMaterial != null)
+            {
+                return _layerBlitMaterial;
+            }
+
+            Shader shader = Shader.Find("Hidden/BlitCopy");
+            if (shader != null)
+            {
+                _layerBlitMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            }
+
+            return _layerBlitMaterial;
         }
 
         /// <summary>Комнаты, которые вообще имеет право рисовать карта — ЛЮБАЯ из двух.</summary>
@@ -708,15 +946,166 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         private void RebuildStaticMapCache(
             StaticMapCache cache,
             bool fullMap,
+            Rect mapRect,
             int width,
             int height,
-            int settingsHash,
-            ProjectionPoseKey poseKey)
+            int settingsHash)
         {
-            cache.EnsureTexture(width, height);
-            RenderTexture previousActive = RenderTexture.active;
-            RenderTexture.active = cache.Texture;
+            // The glass-blue Figma card is drawn per-frame in DrawCardBackground (behind this cache), so the
+            // room-geometry cache stays transparent and composites over it.
+            IReadOnlyList<MinimapRoomSnapshot> rooms = RoomsForDrawing();
+            StaticMapCacheStatus status = StaticMapCacheStatus.Empty;
+            if (TryResolveWorldLayerScale(rooms, mapRect, fullMap, out float scale)
+                && TryMeasureWorldLayer(rooms, false, out Rect worldBounds))
+            {
+                status = BakeWorldLayer(cache, fullMap, rooms, worldBounds, scale, false);
+            }
+            else
+            {
+                cache.MarkEmpty();
+            }
 
+            cache.MarkValid(width, height, _staticMapStateVersion, settingsHash);
+            cache.Status = status;
+            _staticMapRebuildCount++;
+        }
+
+        /// <summary>
+        /// Слой проявляющихся комнат для одной карты: каждый кадр, пока идёт анимация проявления (её цвет меняется
+        /// по кадрам), — одной пачкой GL в небольшую текстуру по охвату этих комнат и одним прямоугольником на
+        /// экран, а не сотней повёрнутых <c>GUI.DrawTexture</c> на каждый отрезок стены.
+        /// </summary>
+        private void BakeAndDrawRevealLayer(IReadOnlyList<MinimapRoomSnapshot> rooms, MapProjection projection,
+            bool fullMap, Rect mapRect)
+        {
+            StaticMapCache layer = fullMap ? _fullRevealLayer : _compactRevealLayer;
+            if (!TryResolveWorldLayerScale(rooms, mapRect, fullMap, out float scale)
+                || !TryMeasureWorldLayer(rooms, true, out Rect worldBounds))
+            {
+                layer.MarkEmpty();
+                return;
+            }
+
+            if (BakeWorldLayer(layer, fullMap, rooms, worldBounds, scale, true) == StaticMapCacheStatus.Built)
+            {
+                _revealLayerBakeCount++;
+                DrawWorldLayer(layer, projection, mapRect);
+            }
+        }
+
+        /// <summary>
+        /// Охват слоя в мире (XZ): комнаты (углы и стены) и, если рисуются, связи между ними. Для слоя
+        /// проявления — только проявляющиеся комнаты и концы их связей.
+        /// </summary>
+        private bool TryMeasureWorldLayer(IReadOnlyList<MinimapRoomSnapshot> rooms, bool revealing, out Rect bounds)
+        {
+            float minX = float.MaxValue;
+            float minY = float.MaxValue;
+            float maxX = float.MinValue;
+            float maxY = float.MinValue;
+            bool drawConnections = drawRoomConnections && !simplifiedDrawing;
+            for (int i = 0; i < rooms.Count; i++)
+            {
+                MinimapRoomSnapshot room = rooms[i];
+                if (revealing && !_session.IsRevealAnimating(room.NodeId))
+                {
+                    continue;
+                }
+
+                RoomMapGeometry geometry = GetRoomGeometry(room);
+                for (int c = 0; c < geometry.Corners.Length; c++)
+                {
+                    Encapsulate(geometry.Corners[c], ref minX, ref minY, ref maxX, ref maxY);
+                }
+
+                if (_wallSegmentsByNodeId.TryGetValue(room.NodeId, out IReadOnlyList<MinimapWallSegment> segments)
+                    && segments != null)
+                {
+                    for (int s = 0; s < segments.Count; s++)
+                    {
+                        Encapsulate(segments[s].A, ref minX, ref minY, ref maxX, ref maxY);
+                        Encapsulate(segments[s].B, ref minX, ref minY, ref maxX, ref maxY);
+                    }
+                }
+
+                if (revealing && drawConnections)
+                {
+                    EncapsulateConnectedRoomCenters(rooms, room, ref minX, ref minY, ref maxX, ref maxY);
+                }
+            }
+
+            if (minX > maxX || minY > maxY)
+            {
+                bounds = default;
+                return false;
+            }
+
+            bounds = Rect.MinMaxRect(minX, minY, maxX, maxY);
+            return true;
+        }
+
+        private void EncapsulateConnectedRoomCenters(IReadOnlyList<MinimapRoomSnapshot> rooms, MinimapRoomSnapshot room,
+            ref float minX, ref float minY, ref float maxX, ref float maxY)
+        {
+            if (_layout?.Connections == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _layout.Connections.Count; i++)
+            {
+                DoorConnection connection = _layout.Connections[i];
+                string otherId = string.Equals(connection.FromNodeId, room.NodeId, StringComparison.Ordinal)
+                    ? connection.ToNodeId
+                    : string.Equals(connection.ToNodeId, room.NodeId, StringComparison.Ordinal)
+                        ? connection.FromNodeId
+                        : null;
+                if (otherId != null && TryFindRoom(rooms, otherId, out MinimapRoomSnapshot other))
+                {
+                    Encapsulate(GetRoomGeometry(other).Center, ref minX, ref minY, ref maxX, ref maxY);
+                }
+            }
+        }
+
+        private static void Encapsulate(Vector2 point, ref float minX, ref float minY, ref float maxX, ref float maxY)
+        {
+            minX = Mathf.Min(minX, point.x);
+            minY = Mathf.Min(minY, point.y);
+            maxX = Mathf.Max(maxX, point.x);
+            maxY = Mathf.Max(maxY, point.y);
+        }
+
+        /// <summary>
+        /// Запекает слой в мировой ориентации: север вверх, без поворота и без привязки к игроку, в
+        /// <paramref name="scale"/> пикселей на метр (уменьшается, если охват не влезает в
+        /// <see cref="MaxWorldLayerTextureSize"/>). Пиксель слоя <c>(x, y)</c> — точка мира
+        /// <c>(left + x / scale, top - y / scale)</c>.
+        /// </summary>
+        private StaticMapCacheStatus BakeWorldLayer(StaticMapCache layer, bool fullMap,
+            IReadOnlyList<MinimapRoomSnapshot> rooms, Rect worldBounds, float scale, bool revealing)
+        {
+            float extent = Mathf.Max(worldBounds.width, worldBounds.height, 0.01f);
+            float budget = MaxWorldLayerTextureSize - 2f * WorldLayerPaddingPixels - 2f;
+            if (extent * scale > budget)
+            {
+                scale = budget / extent;
+            }
+
+            float pad = WorldLayerPaddingPixels / scale;
+            Vector2 topLeft = new(worldBounds.xMin - pad, worldBounds.yMax + pad);
+            int logicalWidth = Mathf.Max(1, Mathf.CeilToInt((worldBounds.width + 2f * pad) * scale));
+            int logicalHeight = Mathf.Max(1, Mathf.CeilToInt((worldBounds.height + 2f * pad) * scale));
+            int width = Mathf.Min(MaxWorldLayerTextureSize, RoundUpToGranularity(logicalWidth));
+            int height = Mathf.Min(MaxWorldLayerTextureSize, RoundUpToGranularity(logicalHeight));
+            layer.EnsureTexture(width, height);
+            layer.SetFrame(topLeft, scale);
+            if (layer.Texture == null)
+            {
+                return StaticMapCacheStatus.TextureNotCreated;
+            }
+
+            RenderTexture previousActive = RenderTexture.active;
+            RenderTexture.active = layer.Texture;
             bool previousHasClip = _hasActiveMapClipRect;
             Rect previousClip = _activeMapClipRect;
             BeginStaticCacheClip(width, height);
@@ -732,26 +1121,25 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                     // Кэш помечается построенным, чтобы не повторять отказ каждый кадр, но статус хранит правду:
                     // стен в нём нет, и первая отрисовка большой карты скажет это в логе.
                     ReportStaticMapCacheProblemOnce("the GL material 'Hidden/Internal-Colored' is unavailable");
-                    cache.MarkValid(width, height, _staticMapStateVersion, settingsHash, poseKey);
-                    cache.Status = StaticMapCacheStatus.MaterialUnavailable;
-                    _staticMapRebuildCount++;
-                    return;
+                    layer.MarkEmpty();
+                    return StaticMapCacheStatus.MaterialUnavailable;
                 }
 
+                // Проекция слоя: мир без поворота, левый верхний угол слоя — в нуле текстуры.
+                MapProjection projection = new(topLeft, Vector2.zero, scale, 0f);
                 _isRenderingStaticMapCache = true;
                 GL.Begin(GL.QUADS);
                 try
                 {
-                    // The glass-blue Figma card is drawn per-frame in DrawCardBackground (behind this
-                    // cache), so the room-geometry cache stays transparent and composites over it.
-                    IReadOnlyList<MinimapRoomSnapshot> rooms = RoomsForDrawing();
-                    if (rooms.Count > 0 &&
-                        TryBuildProjection(rooms, new Rect(0f, 0f, width, height), fullMap, out MapProjection projection))
+                    if (revealing)
                     {
-                        IReadOnlyList<MinimapConnectionSnapshot> connections = ConnectionsForDrawing();
+                        DrawRevealingRoomGeometry(rooms, projection, fullMap);
+                    }
+                    else
+                    {
                         if (drawRoomConnections && !simplifiedDrawing)
                         {
-                            DrawConnections(rooms, connections, projection, fullMap);
+                            DrawConnections(rooms, ConnectionsForDrawing(), projection, fullMap);
                         }
 
                         DrawVisibleRoomGeometry(rooms, projection, fullMap);
@@ -761,6 +1149,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 {
                     GL.End();
                     _isRenderingStaticMapCache = false;
+                    _roomRevealProgress = 1f;
                 }
             }
             finally
@@ -771,10 +1160,12 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 _activeMapClipRect = previousClip;
             }
 
-            cache.MarkValid(width, height, _staticMapStateVersion, settingsHash, poseKey);
-            cache.Status = cache.Created ? StaticMapCacheStatus.Built : StaticMapCacheStatus.TextureNotCreated;
-            _staticMapRebuildCount++;
+            layer.MarkContent();
+            return layer.Created ? StaticMapCacheStatus.Built : StaticMapCacheStatus.TextureNotCreated;
         }
+
+        private static int RoundUpToGranularity(int size) =>
+            (size + WorldLayerTextureGranularity - 1) / WorldLayerTextureGranularity * WorldLayerTextureGranularity;
 
         private void DrawVisibleRoomGeometry(
             IReadOnlyList<MinimapRoomSnapshot> rooms,
@@ -809,14 +1200,12 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
             else if (!DrawBakedWallTexture(room, projection, fullMap))
             {
-                Vector2[] corners = BuildRoomWorldCorners(room);
-                Vector2[] projected = new Vector2[corners.Length];
+                Vector2[] corners = GetRoomGeometry(room).Corners;
                 for (int c = 0; c < corners.Length; c++)
                 {
-                    projected[c] = ProjectWorld(corners[c], projection);
+                    DrawRoomWallSegment(room, ProjectWorld(corners[c], projection),
+                        ProjectWorld(corners[(c + 1) % corners.Length], projection), fullMap);
                 }
-
-                DrawRoomWalls(room, projected, fullMap);
             }
 
             if (drawDoorMarkers)
@@ -884,7 +1273,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
 
             if (room.Cells == null || room.Cells.Count == 0)
             {
-                Vector2[] corners = BuildRoomWorldCorners(room);
+                Vector2[] corners = GetRoomGeometry(room).Corners;
                 for (int i = 0; i < corners.Length; i++)
                 {
                     Vector2 a = ProjectWorld(corners[i], projection);
@@ -896,12 +1285,11 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 return;
             }
 
-            List<LocalEdge> edges = MergeCollinearBoundaryEdges(BuildBoundaryEdges(room.Cells));
-            for (int i = 0; i < edges.Count; i++)
+            Vector2[] edges = GetRoomGeometry(room).BoundaryEdges;
+            for (int i = 0; i + 1 < edges.Length; i += 2)
             {
-                LocalEdge edge = edges[i];
-                Vector2 a = ProjectWorld(RoomLocalToWorld(room, edge.A), projection);
-                Vector2 b = ProjectWorld(RoomLocalToWorld(room, edge.B), projection);
+                Vector2 a = ProjectWorld(edges[i], projection);
+                Vector2 b = ProjectWorld(edges[i + 1], projection);
                 DrawLine(a, b, glowThickness, glow);
                 DrawLine(a, b, lineThickness, line);
             }
@@ -950,8 +1338,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                     continue;
                 }
 
-                Vector2 a = ProjectWorld(Average(BuildRoomWorldCorners(fromRoom)), projection);
-                Vector2 b = ProjectWorld(Average(BuildRoomWorldCorners(toRoom)), projection);
+                Vector2 a = ProjectWorld(GetRoomGeometry(fromRoom).Center, projection);
+                Vector2 b = ProjectWorld(GetRoomGeometry(toRoom).Center, projection);
                 DrawLine(a, b, shadowThickness, shadow);
                 DrawLine(a, b, thickness, color);
             }
@@ -1024,6 +1412,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         {
             _compactMapCache.Dispose();
             _fullMapCache.Dispose();
+            _compactRevealLayer.Dispose();
+            _fullRevealLayer.Dispose();
         }
 
         private void EnsureStaticMapMaterial()
@@ -1040,15 +1430,26 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
 
             _staticMapMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-            _staticMapMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            _staticMapMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            // Слой пишется без смешивания: текстура очищена в прозрачный, и SrcAlpha/OneMinusSrcAlpha возводил
+            // альфу в квадрат и домножал на неё цвет — на экран, где слой смешивается ещё раз, стены выходили
+            // почти невидимыми. Перекрытия (тень и линия стены) рисуются по порядку, последний примитив главный.
+            _staticMapMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            _staticMapMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
             _staticMapMaterial.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
             _staticMapMaterial.SetInt("_ZWrite", 0);
         }
 
         private void DestroyStaticMapMaterial()
         {
-            if (_staticMapMaterial == null)
+            DestroyMaterial(_staticMapMaterial);
+            _staticMapMaterial = null;
+            DestroyMaterial(_layerBlitMaterial);
+            _layerBlitMaterial = null;
+        }
+
+        private static void DestroyMaterial(Material material)
+        {
+            if (material == null)
             {
                 return;
             }
@@ -1056,30 +1457,11 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
 #if UNITY_EDITOR
             if (!UnityEngine.Application.isPlaying)
             {
-                DestroyImmediate(_staticMapMaterial);
+                DestroyImmediate(material);
+                return;
             }
-            else
 #endif
-            {
-                Destroy(_staticMapMaterial);
-            }
-
-            _staticMapMaterial = null;
-        }
-
-        private ProjectionPoseKey BuildProjectionPoseKey()
-        {
-            Transform player = ResolvePlayerTransform();
-            if (player == null)
-            {
-                return ProjectionPoseKey.NoPlayer;
-            }
-
-            return new ProjectionPoseKey(
-                true,
-                Mathf.RoundToInt(player.position.x * 100f),
-                Mathf.RoundToInt(player.position.z * 100f),
-                Mathf.RoundToInt(ResolveLookYaw() * 100f));
+            Destroy(material);
         }
 
         private int CalculateStaticMapSettingsHash(bool fullMap)
@@ -1185,6 +1567,18 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             IReadOnlyList<MinimapRoomSnapshot> rooms,
             Rect rect,
             bool fullMap,
+            out MapProjection projection) =>
+            TryBuildProjectionAtYaw(rooms, rect, fullMap, ResolveLookYaw(), out projection);
+
+        /// <summary>
+        /// Проекция карты при заданном повороте. Кадр берёт поворот взгляда игрока; слой геометрии большой карты
+        /// запекается без поворота (<see cref="TryResolveWorldLayerScale"/>) — так её масштаб наибольший.
+        /// </summary>
+        private bool TryBuildProjectionAtYaw(
+            IReadOnlyList<MinimapRoomSnapshot> rooms,
+            Rect rect,
+            bool fullMap,
+            float yawDegrees,
             out MapProjection projection)
         {
             float meters;
@@ -1198,12 +1592,12 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                         ? new Vector2(fallbackPlayer.position.x, fallbackPlayer.position.z)
                         : Vector2.zero;
                 }
-                else if (!TryCalculateFullMapFit(rooms, ResolveLookYaw(), out center, out _))
+                else if (!TryCalculateFullMapFit(rooms, yawDegrees, out center, out _))
                 {
                     center = ResolveFallbackCenter(rooms);
                 }
 
-                meters = CalculateFullMapFitMeters(rect, rooms);
+                meters = CalculateFullMapFitMeters(rect, rooms, yawDegrees);
             }
             else
             {
@@ -1215,22 +1609,25 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
 
             float scale = Mathf.Min(rect.width, rect.height) / Mathf.Max(12f, meters);
-            projection = new MapProjection(center, rect.center, scale, ResolveLookYaw());
+            projection = new MapProjection(center, rect.center, scale, yawDegrees);
             return scale > 0.001f;
         }
 
         // The map rotates around the player's LOOK direction: the yaw comes from the player's own
         // camera (the CMF look pivot), not from the rig root, whose yaw follows only the movement
         // direction. Falls back to Camera.main and then to the player transform itself.
+        // The camera is found once and kept while it lives: GetComponentInChildren on every yaw request was a
+        // hierarchy walk several times per frame. A player without a camera child is re-searched at most once a
+        // second, or at once when his children change (the look rig may be attached after the player spawned).
         private Transform ResolveLookTransform()
         {
             Transform player = ResolvePlayerTransform();
             if (player != null)
             {
-                Camera playerCamera = player.GetComponentInChildren<Camera>(true);
+                Transform playerCamera = ResolvePlayerLookCamera(player);
                 if (playerCamera != null)
                 {
-                    return playerCamera.transform;
+                    return playerCamera;
                 }
             }
 
@@ -1243,7 +1640,31 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             return player;
         }
 
-        private float ResolveLookYaw()
+        private Transform ResolvePlayerLookCamera(Transform player)
+        {
+            if (_lookCamera != null && ReferenceEquals(_lookCameraOwner, player))
+            {
+                return _lookCamera;
+            }
+
+            int childCount = player.childCount;
+            bool sameOwner = ReferenceEquals(_lookCameraOwner, player) && _lookCameraOwner != null;
+            if (sameOwner && childCount == _lookCameraOwnerChildCount
+                          && Time.unscaledTime < _nextLookCameraSearchTime)
+            {
+                return null;
+            }
+
+            _lookCameraSearchCount++;
+            Camera found = player.GetComponentInChildren<Camera>(true);
+            _lookCamera = found != null ? found.transform : null;
+            _lookCameraOwner = player;
+            _lookCameraOwnerChildCount = childCount;
+            _nextLookCameraSearchTime = Time.unscaledTime + LookCameraRetrySeconds;
+            return _lookCamera;
+        }
+
+        internal float ResolveLookYaw()
         {
             if (!rotateWithPlayer)
             {
@@ -1299,11 +1720,11 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             {
                 if (rooms[i].IsCurrent)
                 {
-                    return Average(BuildRoomWorldCorners(rooms[i]));
+                    return GetRoomGeometry(rooms[i]).Center;
                 }
             }
 
-            return rooms.Count > 0 ? Average(BuildRoomWorldCorners(rooms[0])) : Vector2.zero;
+            return rooms.Count > 0 ? GetRoomGeometry(rooms[0]).Center : Vector2.zero;
         }
 
         /// <summary>
@@ -1330,7 +1751,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             bool any = false;
             for (int i = 0; i < rooms.Count; i++)
             {
-                Vector2[] corners = BuildRoomWorldCorners(rooms[i]);
+                Vector2[] corners = GetRoomGeometry(rooms[i]).Corners;
                 for (int c = 0; c < corners.Length; c++)
                 {
                     minX = Mathf.Min(minX, corners[c].x);
@@ -1358,9 +1779,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             return true;
         }
 
-        private float CalculateFullMapFitMeters(Rect rect, IReadOnlyList<MinimapRoomSnapshot> rooms)
+        private float CalculateFullMapFitMeters(Rect rect, IReadOnlyList<MinimapRoomSnapshot> rooms, float yawDegrees)
         {
-            if (!TryCalculateFullMapFit(rooms, ResolveLookYaw(), out _, out float sizeMeters))
+            if (!TryCalculateFullMapFit(rooms, yawDegrees, out _, out float sizeMeters))
             {
                 return Mathf.Max(12f, visibleMeters);
             }
@@ -1377,7 +1798,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         {
             if (room.Cells == null || room.Cells.Count == 0)
             {
-                Vector2[] corners = BuildRoomWorldCorners(room);
+                Vector2[] corners = GetRoomGeometry(room).Corners;
                 for (int i = 0; i < corners.Length; i++)
                 {
                     Vector2 a = ProjectWorld(corners[i], projection);
@@ -1391,22 +1812,14 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             // Merge the per-cell boundary edges into maximal straight runs first: a wall
             // spanning N cells must draw as ONE clean line, not N short segments (each
             // segment is drawn with an inset inner line, so unmerged cell edges render as a
-            // broken/"dashed" crooked outline in the simplified minimap mode).
-            List<LocalEdge> edges = MergeCollinearBoundaryEdges(BuildBoundaryEdges(room.Cells));
-            for (int i = 0; i < edges.Count; i++)
+            // broken/"dashed" crooked outline in the simplified minimap mode). The merged runs
+            // are computed once per room (GetRoomGeometry), not on every draw.
+            Vector2[] edges = GetRoomGeometry(room).BoundaryEdges;
+            for (int i = 0; i + 1 < edges.Length; i += 2)
             {
-                LocalEdge edge = edges[i];
-                Vector2 a = ProjectWorld(RoomLocalToWorld(room, edge.A), projection);
-                Vector2 b = ProjectWorld(RoomLocalToWorld(room, edge.B), projection);
+                Vector2 a = ProjectWorld(edges[i], projection);
+                Vector2 b = ProjectWorld(edges[i + 1], projection);
                 DrawRoomWallSegment(room, a, b, fullMap);
-            }
-        }
-
-        private void DrawRoomWalls(MinimapRoomSnapshot room, Vector2[] corners, bool fullMap)
-        {
-            for (int i = 0; i < corners.Length; i++)
-            {
-                DrawRoomWallSegment(room, corners[i], corners[(i + 1) % corners.Length], fullMap);
             }
         }
 
@@ -1543,8 +1956,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         }
 
         /// <summary>
-        /// Цвет заполненного кружка несобранной колбы. Непрозрачный: отметка собирается из
-        /// перекрывающихся полос, и полупрозрачный цвет дал бы швы на стыках вместо ровного кружка.
+        /// Цвет заполненного кружка несобранной колбы. Непрозрачный: отметка должна читаться поверх светлых
+        /// стен, а не просвечивать ими.
         /// </summary>
         private static readonly Color UncollectedFragmentColor = new(0.36f, 1f, 0.44f, 1f);
 
@@ -1612,7 +2025,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                     continue;
                 }
 
-                Vector2 c = ProjectWorld(Average(BuildRoomWorldCorners(rooms[i])), projection);
+                Vector2 c = ProjectWorld(GetRoomGeometry(rooms[i]).Center, projection);
                 Rect iconRect = new(c.x - w * 0.5f, c.y - h * 0.5f, w, h);
                 if (_hasActiveMapClipRect && !iconRect.Overlaps(_activeMapClipRect))
                 {
@@ -1658,13 +2071,14 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
 
             // Список колб — раньше проекции: на уровнях без колб (HUB, превью) это единственная
             // выполняемая здесь работа, и она обязана быть дешёвой.
-            RefreshFragmentCapsuleCache();
+            RefreshFragmentCapsuleCache(Time.unscaledTime);
             if (_fragmentCapsuleCount == 0)
             {
                 return;
             }
 
             float markerRadius = FragmentMarkerRadiusPixels(fullMap);
+            FragmentMarkerSprites sprites = EnsureFragmentMarkerSprites(fullMap, markerRadius);
 
             foreach (KeyValuePair<string, List<Transform>> kv in _fragmentCapsulesByNodeId)
             {
@@ -1685,7 +2099,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                     }
 
                     Vector2 screen = ProjectWorld(new Vector2(capsule.position.x, capsule.position.z), projection);
-                    DrawFragmentMarker(screen, markerRadius, capsule.gameObject.activeSelf);
+                    DrawFragmentMarker(sprites, screen, capsule.gameObject.activeSelf);
                 }
             }
         }
@@ -1705,82 +2119,88 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             return fullMap ? fullMapRadius : fullMapRadius * CompactFragmentMarkerRadiusFraction;
         }
 
-        /// <summary>Одна отметка колбы: тёмный кант + заполненный кружок (несобранная) или контур (собранная).</summary>
-        private void DrawFragmentMarker(Vector2 center, float radius, bool uncollected)
+        /// <summary>
+        /// Одна отметка колбы — ОДИН <c>GUI.DrawTexture</c> запечённого спрайта: тёмный кант и заполненный кружок
+        /// (несобранная) или тёмный кружок со светлым ободом (собранная). Раньше отметка собиралась из десятков
+        /// повёрнутых полос и хорд — по несколько десятков вызовов отрисовки на каждую колбу.
+        /// </summary>
+        private void DrawFragmentMarker(FragmentMarkerSprites sprites, Vector2 center, bool uncollected)
         {
-            float outline = Mathf.Max(FragmentMarkerMinOutlinePixels, radius * FragmentMarkerOutlineFraction);
-            float outerRadius = radius + outline;
-
-            // Ранний выход по клипу карточки: маркеров может быть много, а за рамкой карты у них
-            // всё равно не останется ни одного видимого примитива.
-            if (_hasActiveMapClipRect)
-            {
-                Rect markerRect = new(
-                    center.x - outerRadius, center.y - outerRadius, outerRadius * 2f, outerRadius * 2f);
-                if (!markerRect.Overlaps(_activeMapClipRect))
-                {
-                    return;
-                }
-            }
-
-            DrawDisc(center, outerRadius, FragmentMarkerOutlineColor);
-            if (uncollected)
-            {
-                DrawDisc(center, radius, UncollectedFragmentColor);
-                return;
-            }
-
             // Собранная колба остаётся тёмным кружком со светлым ободом: «пусто» читается контуром,
             // а сама отметка не исчезает — по ней видно, что здесь уже подобрано.
-            DrawRing(center, radius, Mathf.Max(1.6f, radius * 0.36f), CollectedFragmentColor);
+            Texture2D texture = uncollected ? sprites.Uncollected : sprites.Collected;
+            DrawRouteHintSprite(texture, center, sprites.OuterRadius, Color.white, 1f);
         }
 
         /// <summary>
-        /// Заполненный круг из горизонтальных полос по хорде окружности. Полосы, а не спицы из
-        /// центра: спицы при радиусе больше пары пикселей расходятся у обода и кружок читается
-        /// «звёздочкой» с просветами — именно так выглядели прежние отметки колб.
+        /// Спрайты отметок колб одной карты в пропорциях её радиуса (доля канта зависит от радиуса).
+        /// Перезапекаются, только если радиус сменился — то есть при смене authored-масштаба.
         /// </summary>
-        private void DrawDisc(Vector2 center, float radius, Color color)
+        private FragmentMarkerSprites EnsureFragmentMarkerSprites(bool fullMap, float radius)
         {
-            if (radius <= 0.1f)
+            FragmentMarkerSprites sprites = fullMap ? _fullMapFragmentSprites : _compactFragmentSprites;
+            if (sprites.Uncollected != null && sprites.Collected != null
+                && Mathf.Abs(sprites.Radius - radius) < 0.001f)
             {
-                return;
+                return sprites;
             }
 
-            int rows = Mathf.Clamp(Mathf.CeilToInt(radius * 2f), 4, 64);
-            float step = radius * 2f / rows;
-            for (int i = 0; i < rows; i++)
-            {
-                float offsetY = -radius + (i + 0.5f) * step;
-                float halfWidth = Mathf.Sqrt(Mathf.Max(0f, radius * radius - offsetY * offsetY));
-                if (halfWidth <= 0.05f)
-                {
-                    continue;
-                }
-
-                float y = center.y + offsetY;
-                DrawLine(new Vector2(center.x - halfWidth, y), new Vector2(center.x + halfWidth, y), step + 0.5f,
-                    color);
-            }
+            sprites.Release();
+            float outline = Mathf.Max(FragmentMarkerMinOutlinePixels, radius * FragmentMarkerOutlineFraction);
+            float outerRadius = radius + outline;
+            float ringThickness = Mathf.Max(1.6f, radius * 0.36f);
+            sprites.Radius = radius;
+            sprites.OuterRadius = outerRadius;
+            sprites.Uncollected = CreateFragmentMarkerTexture(outerRadius, radius, 0f, true);
+            sprites.Collected = CreateFragmentMarkerTexture(outerRadius, radius, ringThickness, false);
+            return sprites;
         }
 
-        /// <summary>Обод окружности заданной толщины (дугами по хордам).</summary>
-        private void DrawRing(Vector2 center, float radius, float thickness, Color color)
+        /// <summary>Тестам: спрайт отметки колбы, которым рисуется карта (тот же экземпляр, пока радиус прежний).</summary>
+        internal Texture2D FragmentMarkerTextureForTests(bool fullMap, bool uncollected)
         {
-            int segments = Mathf.Clamp(Mathf.CeilToInt(radius * 2.5f), 12, 48);
-            for (int i = 0; i < segments; i++)
+            FragmentMarkerSprites sprites = EnsureFragmentMarkerSprites(fullMap, FragmentMarkerRadiusPixels(fullMap));
+            return uncollected ? sprites.Uncollected : sprites.Collected;
+        }
+
+        /// <summary>
+        /// Спрайт отметки со сглаженным краем: внешний круг радиуса <paramref name="outerRadius"/> (тёмный кант),
+        /// внутри — заполненный круг радиуса <paramref name="radius"/> (несобранная) или обод толщины
+        /// <paramref name="ringThickness"/> по окружности этого радиуса (собранная). Размеры — в пикселях экрана,
+        /// в текстуре они пересчитаны к её внешнему кругу.
+        /// </summary>
+        private static Texture2D CreateFragmentMarkerTexture(float outerRadius, float radius, float ringThickness,
+            bool uncollected)
+        {
+            float center = (RouteHintTextureSize - 1) * 0.5f;
+            float outer = RouteHintTextureSize * 0.5f - 1f;
+            float scale = outer / Mathf.Max(0.001f, outerRadius);
+            float inner = radius * scale;
+            float ringHalf = ringThickness * 0.5f * scale;
+            Color outlineColor = FragmentMarkerOutlineColor;
+            Color fillColor = uncollected ? UncollectedFragmentColor : CollectedFragmentColor;
+            return CreateCircleTexture(distance =>
             {
-                float angleA = i * Mathf.PI * 2f / segments;
-                float angleB = (i + 1) * Mathf.PI * 2f / segments;
-                Vector2 a = center + new Vector2(Mathf.Cos(angleA), Mathf.Sin(angleA)) * radius;
-                Vector2 b = center + new Vector2(Mathf.Cos(angleB), Mathf.Sin(angleB)) * radius;
-                DrawLine(a, b, thickness, color);
-            }
+                float coverage = Mathf.Clamp01(outer - distance + 0.5f);
+                float weight = uncollected
+                    ? Mathf.Clamp01(inner - distance + 0.5f)
+                    : Mathf.Clamp01(ringHalf - Mathf.Abs(distance - inner) + 0.5f);
+                Color color = Color.Lerp(outlineColor, fillColor, weight);
+                color.a *= coverage;
+                return color;
+            }, center);
+        }
+
+        private void DestroyFragmentMarkerTextures()
+        {
+            _compactFragmentSprites.Release();
+            _fullMapFragmentSprites.Release();
         }
 
         private void InvalidateFragmentCapsuleCache()
         {
             _fragmentCapsulesByNodeId.Clear();
+            _fragmentCapsuleChildCounts.Clear();
             _fragmentCapsuleCount = 0;
             _nextFragmentCapsuleScanTime = 0f;
         }
@@ -1789,55 +2209,86 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         /// Пересобирает список колб по комнатам не чаще <see cref="FragmentCapsuleRescanSeconds"/>.
         /// Ищутся ПРЯМЫЕ дети комнаты: <c>CodeFragmentRuntimeController.Spawn</c> инстанцирует капсулу
         /// ровно в <c>room.transform</c>, а обход всей иерархии комнаты (сотни трансформов на префаб)
-        /// ради этого — лишний мусор в WebGL.
+        /// ради этого — лишний мусор в WebGL. Комнату, у которой число детей не изменилось с прошлого
+        /// разбора, заново не разбирают: колба появляется спавном и исчезает уничтожением (оба меняют число
+        /// детей), а собранная только гаснет. Так имена детей — строка на каждое чтение — читаются только при
+        /// смене состава комнаты, а не раз в секунду у каждой.
         /// </summary>
-        private void RefreshFragmentCapsuleCache()
+        internal void RefreshFragmentCapsuleCache(float now)
         {
-            if (Time.unscaledTime < _nextFragmentCapsuleScanTime)
+            if (now < _nextFragmentCapsuleScanTime)
             {
                 return;
             }
 
-            _nextFragmentCapsuleScanTime = Time.unscaledTime + FragmentCapsuleRescanSeconds;
+            _nextFragmentCapsuleScanTime = now + FragmentCapsuleRescanSeconds;
             _fragmentCapsuleCount = 0;
-
-            foreach (KeyValuePair<string, List<Transform>> kv in _fragmentCapsulesByNodeId)
+            for (int r = 0; r < _roomInstanceList.Count; r++)
             {
-                kv.Value.Clear();
-            }
-
-            if (_roomInstances == null)
-            {
-                return;
-            }
-
-            foreach (KeyValuePair<string, RoomInstance> kv in _roomInstances)
-            {
-                RoomInstance room = kv.Value;
+                string nodeId = _roomInstanceList[r].Key;
+                RoomInstance room = _roomInstanceList[r].Value;
                 if (room == null)
                 {
+                    if (_fragmentCapsulesByNodeId.TryGetValue(nodeId, out List<Transform> stale))
+                    {
+                        stale.Clear();
+                    }
+
+                    _fragmentCapsuleChildCounts.Remove(nodeId);
                     continue;
                 }
 
                 Transform roomTransform = room.transform;
-                for (int i = 0; i < roomTransform.childCount; i++)
+                int childCount = roomTransform.childCount;
+                if (_fragmentCapsuleChildCounts.TryGetValue(nodeId, out int knownChildCount)
+                    && knownChildCount == childCount)
+                {
+                    if (_fragmentCapsulesByNodeId.TryGetValue(nodeId, out List<Transform> known))
+                    {
+                        _fragmentCapsuleCount += known.Count;
+                    }
+
+                    continue;
+                }
+
+                _fragmentCapsuleChildCounts[nodeId] = childCount;
+                if (!_fragmentCapsulesByNodeId.TryGetValue(nodeId, out List<Transform> capsules))
+                {
+                    capsules = new List<Transform>();
+                    _fragmentCapsulesByNodeId[nodeId] = capsules;
+                }
+
+                capsules.Clear();
+                for (int i = 0; i < childCount; i++)
                 {
                     Transform child = roomTransform.GetChild(i);
+                    _fragmentCapsuleNameReadCount++;
                     if (child == null
                         || !child.name.StartsWith(FragmentCapsuleNamePrefix, StringComparison.Ordinal))
                     {
                         continue;
                     }
 
-                    if (!_fragmentCapsulesByNodeId.TryGetValue(kv.Key, out List<Transform> capsules))
-                    {
-                        capsules = new List<Transform>();
-                        _fragmentCapsulesByNodeId[kv.Key] = capsules;
-                    }
-
                     capsules.Add(child);
-                    _fragmentCapsuleCount++;
                 }
+
+                _fragmentCapsuleCount += capsules.Count;
+            }
+        }
+
+        /// <summary>Запечённые спрайты отметок колб одной карты и радиус, под который они запечены.</summary>
+        private sealed class FragmentMarkerSprites
+        {
+            public float Radius = -1f;
+            public float OuterRadius;
+            public Texture2D Uncollected;
+            public Texture2D Collected;
+
+            public void Release()
+            {
+                DestroyOwnedObject(ref Uncollected);
+                DestroyOwnedObject(ref Collected);
+                Radius = -1f;
             }
         }
 
@@ -1964,6 +2415,79 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
 
             return BuildRoomWorldCorners(room.Pose.CellX, room.Pose.CellY, width, depth, rotation);
+        }
+
+        /// <summary>
+        /// Мировая геометрия комнаты карты, посчитанная один раз за Bind: комнаты уровня не двигаются, а раньше углы,
+        /// центр, клетки и сведённые в прямые стены пересчитывались (с новыми массивами и словарями) на каждый кадр
+        /// и каждое обращение. Комната без идентификатора (снимок, собранный вручную) не кэшируется.
+        /// </summary>
+        private RoomMapGeometry GetRoomGeometry(MinimapRoomSnapshot room)
+        {
+            if (!string.IsNullOrEmpty(room.NodeId)
+                && _roomGeometryByNodeId.TryGetValue(room.NodeId, out RoomMapGeometry cached))
+            {
+                return cached;
+            }
+
+            _roomGeometryBuildCount++;
+            Vector2[] corners = BuildRoomWorldCorners(room);
+            Vector2[] cellCorners;
+            Vector2[] boundaryEdges;
+            if (room.Cells != null && room.Cells.Count > 0)
+            {
+                cellCorners = new Vector2[room.Cells.Count * 4];
+                for (int i = 0; i < room.Cells.Count; i++)
+                {
+                    Vector2[] cell = BuildRoomWorldCorners(room, room.Cells[i]);
+                    Array.Copy(cell, 0, cellCorners, i * 4, 4);
+                }
+
+                List<LocalEdge> edges = MergeCollinearBoundaryEdges(BuildBoundaryEdges(room.Cells));
+                boundaryEdges = new Vector2[edges.Count * 2];
+                for (int i = 0; i < edges.Count; i++)
+                {
+                    boundaryEdges[i * 2] = RoomLocalToWorld(room, edges[i].A);
+                    boundaryEdges[i * 2 + 1] = RoomLocalToWorld(room, edges[i].B);
+                }
+            }
+            else
+            {
+                cellCorners = Array.Empty<Vector2>();
+                boundaryEdges = Array.Empty<Vector2>();
+            }
+
+            RoomMapGeometry geometry = new(corners, Average(corners), cellCorners, boundaryEdges);
+            if (!string.IsNullOrEmpty(room.NodeId))
+            {
+                _roomGeometryByNodeId[room.NodeId] = geometry;
+            }
+
+            return geometry;
+        }
+
+        /// <summary>Мировая геометрия одной комнаты карты (XZ).</summary>
+        private sealed class RoomMapGeometry
+        {
+            public RoomMapGeometry(Vector2[] corners, Vector2 center, Vector2[] cellCorners, Vector2[] boundaryEdges)
+            {
+                Corners = corners;
+                Center = center;
+                CellCorners = cellCorners;
+                BoundaryEdges = boundaryEdges;
+            }
+
+            /// <summary>Углы охвата комнаты (по клеткам, а без клеток — по габариту).</summary>
+            public Vector2[] Corners { get; }
+
+            /// <summary>Среднее углов — точка связей и маркера выхода.</summary>
+            public Vector2 Center { get; }
+
+            /// <summary>По четыре угла на клетку, подряд.</summary>
+            public Vector2[] CellCorners { get; }
+
+            /// <summary>Внешние стены по клеткам, сведённые в прямые: пары концов подряд.</summary>
+            public Vector2[] BoundaryEdges { get; }
         }
 
         private Vector2[] BuildRoomWorldCorners(MinimapRoomSnapshot room)
@@ -2150,10 +2674,16 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 : projection.ScreenCenter;
         }
 
+        /// <summary>
+        /// Мир (XZ) → экран карты. Поворот — <see cref="Rotate"/> на <c>-YawDegrees</c>, но с косинусом и синусом,
+        /// посчитанными один раз в проекции: та же арифметика, без двух тригонометрических вызовов на точку.
+        /// </summary>
         private static Vector2 ProjectWorld(Vector2 world, MapProjection projection)
         {
             Vector2 delta = world - projection.WorldCenter;
-            Vector2 rotated = Rotate(delta, -projection.YawDegrees);
+            float cos = projection.RotateCos;
+            float sin = projection.RotateSin;
+            Vector2 rotated = new(delta.x * cos + delta.y * sin, -delta.x * sin + delta.y * cos);
             return projection.ScreenCenter + new Vector2(rotated.x * projection.Scale, -rotated.y * projection.Scale);
         }
 
@@ -2282,84 +2812,44 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         }
 
         // Soft translucent fill of a room's footprint (one GL quad per cell, so rotated rooms fill
-        // correctly). Only runs inside the static-cache GL.QUADS pass.
+        // correctly). Only runs inside a GL.QUADS pass of a map layer (geometry cache or the layer of
+        // revealing rooms): the cell corners come from the room geometry computed once per Bind.
         private void FillRoomFootprint(MinimapRoomSnapshot room, MapProjection projection, bool fullMap)
         {
-            Color fill = ApplyRoomRevealTint(ResolveRoomFillColor(room, fullMap));
-            if (room.Cells != null && room.Cells.Count > 0)
+            if (!_isRenderingStaticMapCache)
             {
-                for (int i = 0; i < room.Cells.Count; i++)
+                return;
+            }
+
+            Color fill = ApplyRoomRevealTint(ResolveRoomFillColor(room, fullMap));
+            RoomMapGeometry geometry = GetRoomGeometry(room);
+            if (geometry.CellCorners.Length >= 4)
+            {
+                for (int i = 0; i + 3 < geometry.CellCorners.Length; i += 4)
                 {
-                    FillQuad(BuildRoomWorldCorners(room, room.Cells[i]), projection, fill);
+                    FillProjectedQuad(geometry.CellCorners, i, projection, fill);
                 }
 
                 return;
             }
 
-            FillQuad(BuildRoomWorldCorners(room), projection, fill);
+            FillProjectedQuad(geometry.Corners, 0, projection, fill);
         }
 
-        private void FillQuad(Vector2[] worldCorners, MapProjection projection, Color color)
+        /// <summary>Один GL-квад по четырём мировым углам начиная с <paramref name="offset"/>; каждый угол проецируется один раз.</summary>
+        private static void FillProjectedQuad(Vector2[] worldCorners, int offset, MapProjection projection, Color color)
         {
-            if (_isRenderingStaticMapCache)
-            {
-                FillProjectedQuad(worldCorners, projection, color);
-                return;
-            }
-
-            FillProjectedQuadLive(worldCorners, projection, color);
-        }
-
-        /// <summary>
-        /// Заливка клетки живым слоем (проявляющаяся комната в упрощённом режиме): проекция карты —
-        /// поворот с равномерным масштабом, поэтому клетка остаётся прямоугольником и рисуется одним
-        /// повёрнутым <c>GUI.DrawTexture</c>. Без этого заливка появлялась бы скачком в момент запекания.
-        /// </summary>
-        private void FillProjectedQuadLive(Vector2[] worldCorners, MapProjection projection, Color color)
-        {
-            if (worldCorners == null || worldCorners.Length < 4 || _pixel == null)
-            {
-                return;
-            }
-
-            Vector2 a = ProjectWorld(worldCorners[0], projection);
-            Vector2 b = ProjectWorld(worldCorners[1], projection);
-            Vector2 d = ProjectWorld(worldCorners[3], projection);
-            Vector2 c = ProjectWorld(worldCorners[2], projection);
-            Vector2 center = (a + c) * 0.5f;
-            float width = Vector2.Distance(a, b);
-            float height = Vector2.Distance(a, d);
-            if (width <= 0.01f || height <= 0.01f)
-            {
-                return;
-            }
-
-            float half = Mathf.Max(width, height) * 0.75f;
-            if (_hasActiveMapClipRect
-                && !new Rect(center.x - half, center.y - half, half * 2f, half * 2f).Overlaps(_activeMapClipRect))
-            {
-                return;
-            }
-
-            Matrix4x4 matrix = GUI.matrix;
-            GUIUtility.RotateAroundPivot(Mathf.Atan2(b.y - a.y, b.x - a.x) * Mathf.Rad2Deg, center);
-            GUI.color = color;
-            GUI.DrawTexture(new Rect(center.x - width * 0.5f, center.y - height * 0.5f, width, height), _pixel);
-            GUI.matrix = matrix;
-        }
-
-        private static void FillProjectedQuad(Vector2[] worldCorners, MapProjection projection, Color color)
-        {
-            if (worldCorners == null || worldCorners.Length < 4)
+            if (worldCorners == null || worldCorners.Length < offset + 4)
             {
                 return;
             }
 
             GL.Color(color);
-            GL.Vertex3(ProjectWorld(worldCorners[0], projection).x, ProjectWorld(worldCorners[0], projection).y, 0f);
-            GL.Vertex3(ProjectWorld(worldCorners[1], projection).x, ProjectWorld(worldCorners[1], projection).y, 0f);
-            GL.Vertex3(ProjectWorld(worldCorners[2], projection).x, ProjectWorld(worldCorners[2], projection).y, 0f);
-            GL.Vertex3(ProjectWorld(worldCorners[3], projection).x, ProjectWorld(worldCorners[3], projection).y, 0f);
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 corner = ProjectWorld(worldCorners[offset + i], projection);
+                GL.Vertex3(corner.x, corner.y, 0f);
+            }
         }
 
         private Color ResolveRoomFillColor(MinimapRoomSnapshot room, bool fullMap)
@@ -2500,48 +2990,69 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             NotBuilt = 0,
             Built = 1,
             MaterialUnavailable = 2,
-            TextureNotCreated = 3
+            TextureNotCreated = 3,
+
+            /// <summary>Рисовать нечего: ни одной показанной комнаты.</summary>
+            Empty = 4
         }
 
+        /// <summary>
+        /// Текстура слоя карты в мировой ориентации и её привязка к миру: левый верхний угол (мир XZ) и масштаб
+        /// запекания. Действительна для состояния карты, настроек и размера области карты — без позы игрока.
+        /// </summary>
         private sealed class StaticMapCache : IDisposable
         {
             public RenderTexture Texture { get; private set; }
-            private int _width;
-            private int _height;
+            private int _mapWidth;
+            private int _mapHeight;
             private int _stateVersion;
             private int _settingsHash;
-            private ProjectionPoseKey _poseKey;
             private bool _isValid;
 
-            public bool IsValid(
-                int width,
-                int height,
-                int stateVersion,
-                int settingsHash,
-                ProjectionPoseKey poseKey)
+            /// <summary>Точка мира (XZ), попавшая в левый верхний пиксель текстуры.</summary>
+            public Vector2 WorldTopLeft { get; private set; }
+
+            /// <summary>Пикселей текстуры на метр мира.</summary>
+            public float BakeScale { get; private set; } = 1f;
+
+            public int TextureWidth { get; private set; }
+            public int TextureHeight { get; private set; }
+
+            /// <summary>В текстуре запечено содержимое (пустой слой на экран не кладётся).</summary>
+            public bool HasContent { get; private set; }
+
+            public bool IsValid(int mapWidth, int mapHeight, int stateVersion, int settingsHash)
             {
                 return _isValid
-                       && Texture != null
-                       && _width == width
-                       && _height == height
+                       && _mapWidth == mapWidth
+                       && _mapHeight == mapHeight
                        && _stateVersion == stateVersion
-                       && _settingsHash == settingsHash
-                       && _poseKey.Equals(poseKey);
+                       && _settingsHash == settingsHash;
             }
 
             public void EnsureTexture(int width, int height)
             {
-                if (Texture != null && _width == width && _height == height)
+                if (Texture != null && TextureWidth == width && TextureHeight == height)
                 {
                     return;
                 }
 
-                Dispose();
-                _width = width;
-                _height = height;
+                ReleaseTexture();
+                TextureWidth = width;
+                TextureHeight = height;
                 Texture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32) { hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
                 Created = Texture.Create();
             }
+
+            public void SetFrame(Vector2 worldTopLeft, float bakeScale)
+            {
+                WorldTopLeft = worldTopLeft;
+                BakeScale = Mathf.Max(0.0001f, bakeScale);
+            }
+
+            public void MarkContent() => HasContent = true;
+
+            public void MarkEmpty() => HasContent = false;
 
             /// <summary>Видеокарта приняла текстуру кэша (WebGL может отказать большой карте).</summary>
             public bool Created { get; private set; }
@@ -2549,84 +3060,82 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             /// <summary>Чем закончилось последнее построение — для строки первой отрисовки большой карты.</summary>
             public StaticMapCacheStatus Status { get; set; }
 
-            public void MarkValid(
-                int width,
-                int height,
-                int stateVersion,
-                int settingsHash,
-                ProjectionPoseKey poseKey)
+            public void MarkValid(int mapWidth, int mapHeight, int stateVersion, int settingsHash)
             {
-                _width = width;
-                _height = height;
+                _mapWidth = mapWidth;
+                _mapHeight = mapHeight;
                 _stateVersion = stateVersion;
                 _settingsHash = settingsHash;
-                _poseKey = poseKey;
                 _isValid = true;
+            }
+
+            /// <summary>
+            /// Кадр слоя в экранной ориентации, размером с область карты: слой поворачивается и сдвигается в него
+            /// GL-квадом каждый кадр, а на экран кладётся уже без поворота (см. <c>DrawWorldLayer</c>).
+            /// </summary>
+            public RenderTexture ScreenTexture { get; private set; }
+
+            public RenderTexture EnsureScreenTexture(int width, int height)
+            {
+                if (ScreenTexture != null && ScreenTexture.width == width && ScreenTexture.height == height)
+                {
+                    return ScreenTexture;
+                }
+
+                ReleaseScreenTexture();
+                ScreenTexture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32)
+                {
+                    hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp
+                };
+                if (!ScreenTexture.Create())
+                {
+                    ReleaseScreenTexture();
+                }
+
+                return ScreenTexture;
             }
 
             public void Dispose()
             {
                 _isValid = false;
                 Status = StaticMapCacheStatus.NotBuilt;
+                ReleaseTexture();
+                ReleaseScreenTexture();
+            }
+
+            private void ReleaseTexture()
+            {
+                HasContent = false;
                 Created = false;
-                if (Texture == null)
+                TextureWidth = 0;
+                TextureHeight = 0;
+                DestroyRenderTexture(Texture);
+                Texture = null;
+            }
+
+            private void ReleaseScreenTexture()
+            {
+                DestroyRenderTexture(ScreenTexture);
+                ScreenTexture = null;
+            }
+
+            private static void DestroyRenderTexture(RenderTexture texture)
+            {
+                if (texture == null)
                 {
                     return;
                 }
 
-                Texture.Release();
+                texture.Release();
 #if UNITY_EDITOR
                 if (!UnityEngine.Application.isPlaying)
                 {
-                    DestroyImmediate(Texture);
+                    DestroyImmediate(texture);
+                    return;
                 }
-                else
 #endif
-                {
-                    Destroy(Texture);
-                }
-
-                Texture = null;
-            }
-        }
-
-        private readonly struct ProjectionPoseKey : IEquatable<ProjectionPoseKey>
-        {
-            public static readonly ProjectionPoseKey NoPlayer = new(false, 0, 0, 0);
-
-            private readonly bool _hasPlayer;
-            private readonly int _xCentimeters;
-            private readonly int _zCentimeters;
-            private readonly int _yawCentidegrees;
-
-            public ProjectionPoseKey(bool hasPlayer, int xCentimeters, int zCentimeters, int yawCentidegrees)
-            {
-                _hasPlayer = hasPlayer;
-                _xCentimeters = xCentimeters;
-                _zCentimeters = zCentimeters;
-                _yawCentidegrees = yawCentidegrees;
-            }
-
-            public bool Equals(ProjectionPoseKey other)
-            {
-                return _hasPlayer == other._hasPlayer
-                       && _xCentimeters == other._xCentimeters
-                       && _zCentimeters == other._zCentimeters
-                       && _yawCentidegrees == other._yawCentidegrees;
-            }
-
-            public override bool Equals(object obj) => obj is ProjectionPoseKey other && Equals(other);
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = _hasPlayer.GetHashCode();
-                    hash = (hash * 397) ^ _xCentimeters;
-                    hash = (hash * 397) ^ _zCentimeters;
-                    hash = (hash * 397) ^ _yawCentidegrees;
-                    return hash;
-                }
+                Destroy(texture);
             }
         }
 
@@ -2637,12 +3146,23 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             public readonly float Scale;
             public readonly float YawDegrees;
 
+            /// <summary>
+            /// Косинус и синус угла <c>-YawDegrees</c>: поворот мира к экрану считается один раз на проекцию, а не
+            /// на каждую спроецированную точку.
+            /// </summary>
+            public readonly float RotateCos;
+
+            public readonly float RotateSin;
+
             public MapProjection(Vector2 worldCenter, Vector2 screenCenter, float scale, float yawDegrees)
             {
                 WorldCenter = worldCenter;
                 ScreenCenter = screenCenter;
                 Scale = scale;
                 YawDegrees = yawDegrees;
+                float radians = -yawDegrees * Mathf.Deg2Rad;
+                RotateCos = Mathf.Cos(radians);
+                RotateSin = Mathf.Sin(radians);
             }
         }
 

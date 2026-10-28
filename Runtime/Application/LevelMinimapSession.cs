@@ -268,31 +268,73 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             return result;
         }
 
+        /// <summary>
+        /// Дверь <paramref name="socketId"/> комнаты <paramref name="nodeId"/> открылась перед игроком: обе комнаты
+        /// её связи раскроются в момент <paramref name="revealAtTime"/> (уже раскрытые пропускаются). Обе — потому
+        /// что живая дверь у связи одна: игра оставляет дверь From-комнаты, а дубль в To-комнате выключает и
+        /// прячет. Эту одну дверь открывают с обеих сторон, и ученик, вернувшийся к ней из To-комнаты (обходной
+        /// путь, возврат из чекпоинта), обязан увидеть комнату за ней, а не «раскрыть» ту, где стоит. Комната, где
+        /// он стоит, уже раскрыта, поэтому фактически проявляется только дальняя сторона.
+        /// Возвращает, сколько комнат поставлено в очередь.
+        /// </summary>
+        public int ScheduleRevealAcrossDoor(string nodeId, string socketId, float revealAtTime)
+        {
+            if (!TryFindConnection(nodeId, socketId, out DoorConnection connection))
+            {
+                return 0;
+            }
+
+            int scheduled = 0;
+            if (ScheduleReveal(connection.FromNodeId, revealAtTime))
+            {
+                scheduled++;
+            }
+
+            if (ScheduleReveal(connection.ToNodeId, revealAtTime))
+            {
+                scheduled++;
+            }
+
+            return scheduled;
+        }
+
         /// <summary>Комната по ту сторону двери <paramref name="socketId"/> комнаты <paramref name="nodeId"/>.</summary>
         public string FindRoomBehindDoor(string nodeId, string socketId)
         {
-            if (!HasActiveLevel || string.IsNullOrWhiteSpace(nodeId))
+            if (!TryFindConnection(nodeId, socketId, out DoorConnection connection))
             {
                 return null;
+            }
+
+            return string.Equals(connection.FromNodeId, nodeId, StringComparison.Ordinal)
+                   && string.Equals(connection.FromSocketId, socketId, StringComparison.Ordinal)
+                ? connection.ToNodeId
+                : connection.FromNodeId;
+        }
+
+        /// <summary>Связь, одна из сторон которой — дверь <paramref name="socketId"/> комнаты <paramref name="nodeId"/>.</summary>
+        private bool TryFindConnection(string nodeId, string socketId, out DoorConnection found)
+        {
+            found = default;
+            if (!HasActiveLevel || string.IsNullOrWhiteSpace(nodeId))
+            {
+                return false;
             }
 
             for (int i = 0; i < _layout.Connections.Count; i++)
             {
                 DoorConnection connection = _layout.Connections[i];
-                if (string.Equals(connection.FromNodeId, nodeId, StringComparison.Ordinal)
-                    && string.Equals(connection.FromSocketId, socketId, StringComparison.Ordinal))
+                if ((string.Equals(connection.FromNodeId, nodeId, StringComparison.Ordinal)
+                     && string.Equals(connection.FromSocketId, socketId, StringComparison.Ordinal))
+                    || (string.Equals(connection.ToNodeId, nodeId, StringComparison.Ordinal)
+                        && string.Equals(connection.ToSocketId, socketId, StringComparison.Ordinal)))
                 {
-                    return connection.ToNodeId;
-                }
-
-                if (string.Equals(connection.ToNodeId, nodeId, StringComparison.Ordinal)
-                    && string.Equals(connection.ToSocketId, socketId, StringComparison.Ordinal))
-                {
-                    return connection.FromNodeId;
+                    found = connection;
+                    return true;
                 }
             }
 
-            return null;
+            return false;
         }
 
         /// <summary>

@@ -5,6 +5,7 @@ using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
 using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
 using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
 using RedoSchool.Features.LevelGeneration.Runtime.Application;
+using RedoSchool.Features.LevelGeneration.Runtime.Domain.Events;
 using RedoSchool.Features.LevelGeneration.Runtime.Infrastructure;
 using RedoSchool.Features.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
@@ -172,9 +173,11 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 
             Assert.AreEqual(RouteHintPathOutcome.Planned, controller.LastRouteHintPathOutcome);
             Assert.AreEqual("n_objective", controller.RouteHint.Decision.TargetDoor.ToNodeId);
-            Vector2 end = controller.RouteHintWorldPath[controller.RouteHintWorldPath.Count - 1];
-            Assert.AreEqual(1f, end.x, 0.01f, "цель — дверь следующей комнаты");
-            Assert.AreEqual(0.5f, end.y, 0.01f);
+            // Путь не обрывается в проёме, а продолжается за дверь (RouteHintPathOptions.DoorLeadOutMeters), поэтому
+            // проверяется, что линия проходит центр двери, а не что она в нём кончается.
+            Vector2 door = new(LevelMinimapSession.LogicalCellSize, 0.5f);
+            Assert.Less(DistanceToPolyline(controller.RouteHintWorldPath, door), 0.01f,
+                "цель — дверь следующей комнаты");
         }
 
         [Test]
@@ -361,8 +364,32 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             Assert.Less(Vector2.Distance(path[path.Count - 1], door), 0.05f);
         }
 
+        /// <summary>
+        /// Живая дверь связи — дверь From-комнаты; её выключенное состояние закрывает проход.
+        /// </summary>
         [Test]
-        public void RouteHint_DisabledTransitDoor_DoesNotProduceRoute()
+        public void RouteHint_DisabledLiveFromDoor_DoesNotProduceRoute()
+        {
+            LevelMinimapController controller = CreateController(out LevelMinimapSettings settings);
+            PlacePlayer(controller, new Vector3(0.2f, 0f, 0.5f));
+            controller.Bind(CreateLayout(startExitState: DoorState.Disabled));
+            controller.RestoreCheckpoint(new[] { "n_start", "n_objective" }, "n_start",
+                new[] { "n_objective" });
+
+            controller.UpdateRouteHint(settings.RouteHintIdleSeconds, 0f, true);
+
+            Assert.AreEqual(RouteHintPathOutcome.Unreachable, controller.LastRouteHintPathOutcome);
+            Assert.IsEmpty(controller.RouteHintWorldPath);
+        }
+
+        /// <summary>
+        /// Регрессия: «выключенная» To-сторона связи — это дубль, который игра прячет у КАЖДОЙ связи
+        /// (<c>LevelSpawner</c> оставляет живой только дверь From-комнаты). Прежде он делал запертым каждый
+        /// проход, и подсказка не находила дороги через уже пройденную комнату. Тест на этом месте раньше
+        /// утверждал обратное.
+        /// </summary>
+        [Test]
+        public void RouteHint_DisabledDuplicateToDoor_StillProducesRoute()
         {
             LevelMinimapController controller = CreateController(out LevelMinimapSettings settings);
             PlacePlayer(controller, new Vector3(0.2f, 0f, 0.5f));
@@ -372,8 +399,100 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 
             controller.UpdateRouteHint(settings.RouteHintIdleSeconds, 0f, true);
 
-            Assert.AreEqual(RouteHintPathOutcome.Unreachable, controller.LastRouteHintPathOutcome);
-            Assert.IsEmpty(controller.RouteHintWorldPath);
+            Assert.AreEqual("n_exit", controller.RouteHint.Decision.TargetDoor.ToNodeId,
+                "Precondition: the target lies beyond the passed room, across the connection with the duplicate.");
+            Assert.AreEqual(RouteHintPathOutcome.Planned, controller.LastRouteHintPathOutcome);
+            Assert.IsNotEmpty(controller.RouteHintWorldPath);
+        }
+
+        /// <summary>
+        /// То же на сцене, как её собирает игра: в To-комнате дубль двери выключен и спрятан
+        /// (<c>DoorState.Disabled</c> + <c>SetActive(false)</c>), живая дверь — в From-комнате. Ученик
+        /// возвращается из боковой комнаты (тупика) через такую связь — проход обязан считаться открытым.
+        /// </summary>
+        [Test]
+        public void RouteHint_ConnectionWithHiddenDuplicateToDoor_IsCrossable()
+        {
+            LevelMinimapController controller = CreateController(out LevelMinimapSettings settings);
+            PlacePlayer(controller, new Vector3(0.2f, 0f, 0.5f));
+            (RoomInstance start, RoomInstance objective, DoorSocket west) = CreateStartAndObjectiveRooms();
+            west.ApplyGeneratedState(DoorState.Disabled);
+            west.gameObject.SetActive(false);
+            controller.Bind(CreateLayout(), null, Rooms(start, objective));
+            controller.RestoreCheckpoint(new[] { "n_start", "n_objective" }, "n_start",
+                new[] { "n_objective" }, true);
+
+            controller.UpdateRouteHint(settings.RouteHintIdleSeconds, 0f, true);
+
+            Assert.AreEqual("n_exit", controller.RouteHint.Decision.TargetDoor.ToNodeId,
+                "Precondition: the target is beyond n_objective, the route must cross n_start → n_objective.");
+            Assert.AreEqual(RouteHintPathOutcome.Planned, controller.LastRouteHintPathOutcome,
+                "A hidden duplicate on the To side is not a locked passage.");
+        }
+
+        [Test]
+        public void RouteHint_LockedLiveDoorOnTheToSide_StillClosesThePassage()
+        {
+            LevelMinimapController controller = CreateController(out LevelMinimapSettings settings);
+            PlacePlayer(controller, new Vector3(0.2f, 0f, 0.5f));
+            (RoomInstance start, RoomInstance objective, DoorSocket west) = CreateStartAndObjectiveRooms();
+            west.ApplyState(DoorState.Locked);
+            controller.Bind(CreateLayout(), null, Rooms(start, objective));
+            controller.RestoreCheckpoint(new[] { "n_start", "n_objective" }, "n_start",
+                new[] { "n_objective" }, true);
+
+            controller.UpdateRouteHint(settings.RouteHintIdleSeconds, 0f, true);
+
+            Assert.AreEqual(RouteHintPathOutcome.Unreachable, controller.LastRouteHintPathOutcome,
+                "A LIVE locked door on the To side does block the way (both doors are live in this scene).");
+        }
+
+        /// <summary>
+        /// Регрессия: у связи живая только дверь From-комнаты, и ученик, подошедший к ней из To-комнаты (обходом
+        /// или после возврата из чекпоинта), прежде «раскрывал» комнату, где уже стоит, — а комната за дверью
+        /// оставалась тёмной.
+        /// </summary>
+        [Test]
+        public void DoorOpenedForPlayer_FromTheToSide_RevealsTheRoomThatOwnsTheDoor()
+        {
+            LevelMinimapController controller = CreateController();
+            (RoomInstance objective, DoorSocket objectiveEast) = CreateRoom("n_objective", "east");
+            SimpleRoomEventBus bus = new();
+            controller.Bind(CreateLayout(), bus, Rooms(objective));
+            bus.Publish(new RoomEnteredEvent("n_exit", RoomKind.Exit));
+            Assert.IsFalse(controller.Session.IsRoomRevealed("n_objective"), "Precondition: n_objective is dark.");
+
+            Assert.IsTrue(objectiveEast.TrySetTriggeredOpen(true));
+
+            Assert.IsTrue(controller.Session.IsRevealPending("n_objective"),
+                "The door n_objective → n_exit opened in front of a student standing in n_exit: the room "
+                + "behind it (the door's owner) must reveal.");
+            Assert.AreEqual("n_exit", controller.Session.CurrentRoomId, "Opening a door is not entering.");
+        }
+
+        [Test]
+        public void DoorMarkers_DoorUnlocked_RebuildsTheGeometryCache()
+        {
+            LevelMinimapController controller = CreateController(out _);
+            SerializedObject serialized = new(controller);
+            serialized.FindProperty("drawDoorMarkers").boolValue = true;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            (RoomInstance start, DoorSocket east) = CreateRoom("n_start", "east");
+            east.ApplyState(DoorState.Locked);
+            controller.Bind(CreateLayout(), null, Rooms(start));
+            Rect rect = new(0f, 0f, 220f, 160f);
+            Assert.IsTrue(controller.WarmStaticMapCacheForTests(rect, false));
+            int built = controller.StaticMapRebuildCount;
+            controller.TickFrame(RouteHintPresence.Exploring, false, 0.01f, 0.01f, 0.01f);
+            Assert.IsTrue(controller.WarmStaticMapCacheForTests(rect, false));
+            Assert.AreEqual(built, controller.StaticMapRebuildCount, "Precondition: nothing changed, no rebuild.");
+
+            east.ApplyState(DoorState.Open);
+            controller.TickFrame(RouteHintPresence.Exploring, false, 0.01f, 0.01f, 0.02f);
+            Assert.IsTrue(controller.WarmStaticMapCacheForTests(rect, false));
+
+            Assert.AreEqual(built + 1, controller.StaticMapRebuildCount,
+                "The unlocked door is baked into the cache with its colour: the cache must refresh.");
         }
 
         [Test]
@@ -464,6 +583,21 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             return rect.center + new Vector2(rotated.x, -rotated.z) * projection.Scale;
         }
 
+        private static float DistanceToPolyline(IReadOnlyList<Vector2> path, Vector2 point)
+        {
+            float best = float.MaxValue;
+            for (int i = 0; i + 1 < path.Count; i++)
+            {
+                Vector2 segment = path[i + 1] - path[i];
+                float t = segment.sqrMagnitude > 0.000001f
+                    ? Mathf.Clamp01(Vector2.Dot(point - path[i], segment) / segment.sqrMagnitude)
+                    : 0f;
+                best = Mathf.Min(best, Vector2.Distance(point, path[i] + segment * t));
+            }
+
+            return best;
+        }
+
         private LevelMinimapController CreateController() => CreateController(out _);
 
         private LevelMinimapController CreateController(out LevelMinimapSettings settings)
@@ -485,12 +619,18 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             controller.PlayerTransform = player.transform;
         }
 
-        private (RoomInstance room, DoorSocket door) CreateRoom(string nodeId, string socketId)
+        private (RoomInstance room, DoorSocket door) CreateRoom(string nodeId, string socketId) =>
+            CreateRoom(nodeId, socketId, Vector3.zero, Vector3.zero);
+
+        private (RoomInstance room, DoorSocket door) CreateRoom(string nodeId, string socketId, Vector3 roomPosition,
+            Vector3 doorLocalPosition)
         {
             GameObject roomGo = new($"Room_{nodeId}");
             _created.Add(roomGo);
+            roomGo.transform.position = roomPosition;
             GameObject doorGo = new($"Door_{socketId}");
             doorGo.transform.SetParent(roomGo.transform, false);
+            doorGo.transform.localPosition = doorLocalPosition;
 
             DoorSocket door = doorGo.AddComponent<DoorSocket>();
             SerializedObject doorSo = new(door);
@@ -503,6 +643,20 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             instance.Configure(nodeId, RoomKind.Start, template);
             Assert.AreSame(door, instance.FindSocket(socketId), "дверь обязана попасть в комнату");
             return (instance, door);
+        }
+
+        /// <summary>
+        /// Сцена связи n_start → n_objective из <see cref="CreateLayout"/>: комнаты стоят там же, где в раскладке, а
+        /// дверь From-комнаты (восток n_start) и её дубль в To-комнате (запад n_objective) — в одной точке шва, как
+        /// генератор стыкует сокеты.
+        /// </summary>
+        private (RoomInstance start, RoomInstance objective, DoorSocket objectiveWest) CreateStartAndObjectiveRooms()
+        {
+            const float cell = LevelMinimapSession.LogicalCellSize;
+            (RoomInstance start, _) = CreateRoom("n_start", "east", Vector3.zero, new Vector3(cell, 0f, 0.5f));
+            (RoomInstance objective, DoorSocket west) = CreateRoom("n_objective", "west",
+                new Vector3(cell, 0f, 0f), new Vector3(0f, 0f, 0.5f));
+            return (start, objective, west);
         }
 
         private static RouteHintTaskAnchorStub CreateTaskAnchor(RoomInstance room, Vector3 worldPosition,
@@ -527,8 +681,14 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             return result;
         }
 
+        /// <summary>
+        /// Три комнаты в ряд, как их ставит генератор: соседние комнаты примыкают друг к другу, и дверь связи лежит
+        /// на общем шве (восточный край одной — западный край другой). Шаг — <see cref="LevelMinimapSession.LogicalCellSize"/>:
+        /// прежний шаг 2 остался от сетки, где логическая ячейка была 2, и после её смены на 1 между комнатами
+        /// зияла пустая клетка — путь не мог перейти ни одну связь, а тесты «проход закрыт» зеленели и без замка.
+        /// </summary>
         private static LevelLayout CreateLayout(bool lockStartExit = false,
-            DoorState middleDoorState = DoorState.Open)
+            DoorState middleDoorState = DoorState.Open, DoorState? startExitState = null)
         {
             Dictionary<string, DoorState> startDoors = new(StringComparer.Ordinal);
             if (lockStartExit)
@@ -536,15 +696,20 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
                 startDoors["east"] = DoorState.Locked;
             }
 
+            if (startExitState.HasValue)
+            {
+                startDoors["east"] = startExitState.Value;
+            }
+
             return new LevelLayout(
                 new[]
                 {
                     Room("n_start", 0f, startDoors),
-                    Room("n_objective", 2f, new Dictionary<string, DoorState>
+                    Room("n_objective", LevelMinimapSession.LogicalCellSize, new Dictionary<string, DoorState>
                     {
                         ["west"] = middleDoorState
                     }),
-                    Room("n_exit", 4f, new Dictionary<string, DoorState>())
+                    Room("n_exit", LevelMinimapSession.LogicalCellSize * 2f, new Dictionary<string, DoorState>())
                 },
                 new[]
                 {

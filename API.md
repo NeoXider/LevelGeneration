@@ -13,6 +13,10 @@ MissionGenerator.BuildLayoutAsync(IMissionConfigView config, int seed, Cancellat
 
 `BuildLayoutAsync` snapshot-ит Unity-backed config/tileset/rooms на caller thread, затем запускает generator pipeline на worker thread с cooperative cancellation.
 
+`LevelGenerationPackageInfo.LayoutContract` — версия раскладки по сиду: меняется, только когда тот же сид и та же
+конфигурация дают другую раскладку (4.1.0 → `2`). Хозяин, сохраняющий прогресс миссии по сиду, хранит это значение
+вместе с сохранением и начинает прогон заново, если оно отличается.
+
 ## Interactive room kinds
 
 Пакет не знает ни одного конкретного вида интерактивной комнаты. Хост передаёт правила своих типов как
@@ -135,8 +139,8 @@ Pure C# события комнат, дверей и endpoint вынесены �
 - `LevelMinimapController.NotifyDoorOpened`, `SetRouteHintForced`, `RouteHint`, `Settings`
   (`LevelMinimapSettings`, `Resources/Minimap/LevelMinimapSettings`).
 - `IMinimapGameplayContext` — что карте нужно от игры: `Presence` → `RouteHintPresence` (`Exploring` /
-  `Occupied`: таймер простоя идёт и большая карта рисуется только в мире), `IsGameplayKeyboardBlocked`
-  (клавиша `M` молчит, пока клавиатурой владеет UI), `DescribeControl()` (фрагмент `RouteHintDiagnosticText`).
+  `Occupied`: таймер простоя идёт и большая карта рисуется только в мире), `WasFullMapTogglePressed`
+  (нажатие клавиши большой карты из ввода игры; молчит, пока клавиатурой владеет UI), `DescribeControl()` (фрагмент `RouteHintDiagnosticText`).
   Подключение — `MinimapGameplay.Context`; без него карта автономна (в мире, клавиатура свободна).
   Журнал — `LevelGenerationRuntimeLog.Info/Warn` с приёмниками `InfoSink`/`WarnSink` (сообщение, файл,
   метод); без приёмника — консоль Unity. Решение о присутствии по фактам ввода живёт в игре

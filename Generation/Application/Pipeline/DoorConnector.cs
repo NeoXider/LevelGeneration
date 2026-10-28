@@ -6,21 +6,64 @@ using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
 namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
+    /// Что делать со «случайным касанием» — парой свободных дверей двух комнат, которые совпали геометрически
+    /// (точка и встречный угол), но не являются ребром <see cref="LevelGraph"/>.
+    /// </summary>
+    public enum IncidentalDoorContactMode
+    {
+        /// <summary>
+        /// По умолчанию: обе двери запечатываются (Disabled), как любой неиспользованный сокет. Топология миссии
+        /// задаётся только графом — касание не открывает обход квиза, замка или главного пути. Единственный режим
+        /// для <see cref="MissionGenerator"/>: его проверка с графом отклоняет соединения вне графа.
+        /// </summary>
+        Seal = 0,
+
+        /// <summary>
+        /// Песочница/отладка: касание становится соединением вне графа. <see cref="LevelValidator"/> с графом
+        /// отклоняет такую раскладку (<c>ConnectionNotInGraph</c>), поэтому в <see cref="MissionGenerator"/> этот режим
+        /// только сжигает сиды; генератор предупреждает о нём в <see cref="MissionGenerator.LastWarnings"/>.
+        /// </summary>
+        ConnectOutsideGraph = 1
+    }
+
+    /// <summary>
     /// Connects graph edges by matching already placed door anchors. A pair is valid when socket size matches,
     /// world-space door anchor points coincide and door yaws face opposite directions.
+    /// <para>
+    /// Для генерации миссий создавайте <c>new DoorConnector()</c> (<see cref="IncidentalDoorContactMode.Seal"/>):
+    /// случайные касания дверей запечатываются. <c>new DoorConnector(true)</c> — только для песочниц без проверки графа.
+    /// </para>
     /// </summary>
     public sealed class DoorConnector : IDoorConnector
     {
-        public DoorConnector(bool connectIncidentalDoorContacts = false)
+        public DoorConnector()
+            : this(IncidentalDoorContactMode.Seal)
         {
-            ConnectIncidentalDoorContacts = connectIncidentalDoorContacts;
         }
+
+        public DoorConnector(IncidentalDoorContactMode incidentalDoorContacts)
+        {
+            IncidentalDoorContacts = incidentalDoorContacts;
+        }
+
+        /// <param name="connectIncidentalDoorContacts">
+        /// <c>true</c> = <see cref="IncidentalDoorContactMode.ConnectOutsideGraph"/> (песочница/отладка). Для миссий,
+        /// которые проверяет <see cref="MissionGenerator"/>, передавайте <c>false</c> или используйте конструктор без аргументов.
+        /// </param>
+        public DoorConnector(bool connectIncidentalDoorContacts)
+            : this(connectIncidentalDoorContacts
+                ? IncidentalDoorContactMode.ConnectOutsideGraph
+                : IncidentalDoorContactMode.Seal)
+        {
+        }
+
+        public IncidentalDoorContactMode IncidentalDoorContacts { get; }
 
         /// <summary>
         /// Disabled by default: generated mission topology should come from <see cref="LevelGraph"/> only.
         /// Enable only for debug/sandbox layouts where accidental adjacent doors are intentionally allowed.
         /// </summary>
-        public bool ConnectIncidentalDoorContacts { get; }
+        public bool ConnectIncidentalDoorContacts => IncidentalDoorContacts == IncidentalDoorContactMode.ConnectOutsideGraph;
 
         public LevelLayout Connect(
             LevelLayout layout,

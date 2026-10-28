@@ -190,12 +190,16 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Facade
         private static IReadOnlyList<LayoutRetryStage> GetStages(LayoutRetryPolicy retryPolicy) => ResolveRetryStages(retryPolicy);
 
         /// <summary>
-        /// Single source of truth for the retry-stage ladder. The ladder is intentionally identical
-        /// across all platforms (no <c>#if UNITY_WEBGL</c> fork) so a given seed yields the same layout
-        /// on WebGL, the editor and standalone. WebGL performance is bounded by the generation time
-        /// budget (<c>GenerationTimeBudgetPolicy</c> / <c>CancelAfter</c>), not by a reduced stage set,
-        /// which is why dropping the platform fork is safe. <see cref="MissionGenerator"/> reuses this
-        /// list so the ladder cannot diverge between the V1 facade and the V2 generator.
+        /// Single source of truth for the retry-stage ladder. The ladder is identical across all platforms
+        /// (no <c>#if UNITY_WEBGL</c> fork). <see cref="MissionGenerator"/> reuses this list so the ladder cannot
+        /// diverge between the V1 facade and the V2 generator.
+        /// <para>
+        /// Одинаковая лесенка — необходимое, но не достаточное условие одинаковой раскладки сида. Здесь, в
+        /// <see cref="Generate"/>, истёкший <c>GenerationTimeBudgetPolicy</c> прерывает запрос (Failed/Timeout) до
+        /// следующей стадии — это отказ, а не другая раскладка. <see cref="MissionGenerator"/> вызывает генератор по
+        /// одной стадии (FailFast) без собственного таймера, ограничивает размещение счётными бюджетами и
+        /// использует часы только для прерывания всего прогона, поэтому исход сида от скорости машины не зависит.
+        /// </para>
         /// </summary>
         public static IReadOnlyList<LayoutRetryStage> ResolveRetryStages(LayoutRetryPolicy retryPolicy)
         {

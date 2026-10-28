@@ -71,6 +71,39 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
         }
 
         /// <summary>
+        /// То же, что <see cref="TryTransform"/>, но пишет стены в переиспользуемый буфер вызывающего, а не в новый
+        /// массив. Горячий путь размещения проверяет так каждую позу-кандидата; результат живёт только до
+        /// следующего вызова с тем же буфером, поэтому его нельзя кэшировать (для кэша — <see cref="TryTransform"/>).
+        /// </summary>
+        internal static bool TryTransformInto(
+            PlacedRoom room,
+            IRoomTemplateDescriptor template,
+            ref WallObb[] buffer,
+            out TransformedWallSegments transformed)
+        {
+            transformed = default;
+            if (!TryGetSegments(template, out IReadOnlyList<RoomWallSegment2D> segments))
+            {
+                return false;
+            }
+
+            if (buffer == null || buffer.Length < segments.Count)
+            {
+                buffer = new WallObb[Math.Max(segments.Count, (buffer?.Length ?? 0) * 2)];
+            }
+
+            ResolveOriginAndRotation(room, out (float x, float z) origin, out float rotation);
+            RotationBasis basis = new(rotation);
+            for (int i = 0; i < segments.Count; i++)
+            {
+                buffer[i] = BuildObb(segments[i], origin, basis);
+            }
+
+            transformed = new TransformedWallSegments(buffer, segments.Count);
+            return true;
+        }
+
+        /// <summary>
         /// Axis-aligned bounding box of already-transformed wall OBBs, used as a broadphase pre-reject
         /// so the per-segment SAT test only runs for rooms that can actually touch.
         /// </summary>
@@ -143,9 +176,10 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
         {
             WallObb[] result = new WallObb[segments.Count];
             (float x, float z) origin = (x: pose.CellX * DoorSnapMeters, z: pose.CellY * DoorSnapMeters);
+            RotationBasis basis = new(pose.RotationDegrees);
             for (int i = 0; i < segments.Count; i++)
             {
-                result[i] = BuildObb(segments[i], origin, pose.RotationDegrees);
+                result[i] = BuildObb(segments[i], origin, basis);
             }
 
             return new TransformedWallSegments(result);
@@ -154,22 +188,31 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
         private static TransformedWallSegments Transform(IReadOnlyList<RoomWallSegment2D> segments, PlacedRoom room)
         {
             WallObb[] result = new WallObb[segments.Count];
-            (float x, float z) origin = room.WorldPose.HasValue
-                ? (x: room.WorldPose.Value.X, z: room.WorldPose.Value.Z)
-                : (x: room.Pose.CellX * DoorSnapMeters, z: room.Pose.CellY * DoorSnapMeters);
-            float rotation = room.WorldPose.HasValue ? YawDegrees(room.WorldPose.Value) : room.Pose.RotationDegrees;
+            ResolveOriginAndRotation(room, out (float x, float z) origin, out float rotation);
+            RotationBasis basis = new(rotation);
             for (int i = 0; i < segments.Count; i++)
             {
-                result[i] = BuildObb(segments[i], origin, rotation);
+                result[i] = BuildObb(segments[i], origin, basis);
             }
 
             return new TransformedWallSegments(result);
         }
 
-        private static WallObb BuildObb(RoomWallSegment2D segment, (float x, float z) origin, float rotationDegrees)
+        private static void ResolveOriginAndRotation(
+            PlacedRoom room,
+            out (float x, float z) origin,
+            out float rotationDegrees)
         {
-            (float x, float z) a = Add(origin, Rotate((segment.Ax, segment.Az), rotationDegrees));
-            (float x, float z) b = Add(origin, Rotate((segment.Bx, segment.Bz), rotationDegrees));
+            origin = room.WorldPose.HasValue
+                ? (x: room.WorldPose.Value.X, z: room.WorldPose.Value.Z)
+                : (x: room.Pose.CellX * DoorSnapMeters, z: room.Pose.CellY * DoorSnapMeters);
+            rotationDegrees = room.WorldPose.HasValue ? YawDegrees(room.WorldPose.Value) : room.Pose.RotationDegrees;
+        }
+
+        private static WallObb BuildObb(RoomWallSegment2D segment, (float x, float z) origin, RotationBasis basis)
+        {
+            (float x, float z) a = Add(origin, basis.Rotate((segment.Ax, segment.Az)));
+            (float x, float z) b = Add(origin, basis.Rotate((segment.Bx, segment.Bz)));
             float dx = b.x - a.x;
             float dz = b.z - a.z;
             float length = (float)Math.Sqrt(dx * dx + dz * dz);
@@ -340,12 +383,22 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
             return yaw < 0f ? yaw + 360f : yaw;
         }
 
-        private static (float x, float z) Rotate((float x, float z) point, float degrees)
+        // Синус и косинус поворота комнаты считаются один раз на трансформацию, а не дважды на каждую стену.
+        // Формулы те же, что были в прежнем Rotate на точку, поэтому позы стен и исход пересечений бит-в-бит прежние.
+        private readonly struct RotationBasis
         {
-            double radians = degrees * Math.PI / 180.0;
-            float cos = (float)Math.Cos(radians);
-            float sin = (float)Math.Sin(radians);
-            return (point.x * cos + point.z * sin, -point.x * sin + point.z * cos);
+            private readonly float _cos;
+            private readonly float _sin;
+
+            public RotationBasis(float degrees)
+            {
+                double radians = degrees * Math.PI / 180.0;
+                _cos = (float)Math.Cos(radians);
+                _sin = (float)Math.Sin(radians);
+            }
+
+            public (float x, float z) Rotate((float x, float z) point) =>
+                (point.x * _cos + point.z * _sin, -point.x * _sin + point.z * _cos);
         }
 
         private static (float x, float z) Add((float x, float z) a, (float x, float z) b) => (a.x + b.x, a.z + b.z);
@@ -398,14 +451,22 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
         internal readonly struct TransformedWallSegments
         {
             private readonly WallObb[] _segments;
+            private readonly int _count;
 
             public TransformedWallSegments(WallObb[] segments)
+                : this(segments, segments?.Length ?? 0)
             {
-                _segments = segments;
             }
 
-            public bool HasSegments => _segments != null && _segments.Length > 0;
-            public int Count => _segments?.Length ?? 0;
+            // count меньше длины массива — буфер переиспользуется (см. TryTransformInto), значимы первые count стен.
+            public TransformedWallSegments(WallObb[] segments, int count)
+            {
+                _segments = segments;
+                _count = segments == null ? 0 : Math.Max(0, Math.Min(count, segments.Length));
+            }
+
+            public bool HasSegments => _count > 0;
+            public int Count => _count;
 
             public WallObb this[int index] => _segments[index];
         }

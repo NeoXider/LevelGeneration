@@ -352,6 +352,36 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             Assert.IsFalse(view.Sparkles.IsAlive(true));
         }
 
+        /// <summary>
+        /// Контроллер карты зовёт <c>Hide</c> каждый кадр, пока подсказка скрыта; остановка системы частиц обходит
+        /// всю её иерархию, поэтому повтор на уже погашенной ленте обязан ничего не делать.
+        /// </summary>
+        [Test]
+        public void Hide_AlreadyHidden_DoesNotStopTheParticlesAgain()
+        {
+            RouteHintFloorView view = CreateView(true);
+            LevelMinimapSettings settings = CreateSettings();
+            view.Show(BuildRibbon(settings), settings);
+            view.Render(1f, 1f, 0f, settings);
+            view.Hide();
+            int stops = view.SparkleStopCount;
+
+            for (int frame = 0; frame < 30; frame++)
+            {
+                view.Hide();
+            }
+
+            Assert.AreEqual(stops, view.SparkleStopCount, "Hiding a hidden view is free.");
+            Assert.IsFalse(view.HasPath);
+
+            view.Show(BuildRibbon(settings), settings);
+            view.Render(1f, 1f, 0f, settings);
+            Assert.Greater(view.Sparkles.particleCount, 0, "Precondition: shown again.");
+            view.Hide();
+
+            Assert.AreEqual(0, view.Sparkles.particleCount, "A really shown view is still cleared by the next Hide.");
+        }
+
         [Test]
         public void Render_CompletedFade_ClearsStarsWithoutWaitingForSimulation()
         {

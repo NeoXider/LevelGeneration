@@ -240,6 +240,37 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             Assert.AreEqual(5f, empty.LengthMeters, 0.001f);
         }
 
+        /// <summary>
+        /// Высоты пола под линией — данные плана: кадры смешивания меняют точки (и <c>Revision</c>), но не план,
+        /// поэтому высоты, прощупанные лучами один раз на перепланирование, остаются годными до следующего плана.
+        /// </summary>
+        [Test]
+        public void PlanVersion_GrowsPerReplanOnly_FloorHeightsLiveUntilTheNextPlan()
+        {
+            RouteHintTrail trail = StraightTrail(20f);
+            List<Vector2> shifted = new() { new Vector2(0f, 1.2f), new Vector2(10f, 0.6f), new Vector2(20f, 0f) };
+            trail.AssignBlended(shifted, null, Cap, StartOffset, MinVisible, 10f, 0.4f);
+            int plan = trail.PlanVersion;
+            Assert.AreSame(trail.PlannedPoints, trail.PlannedPoints);
+            Assert.AreEqual(shifted[0], trail.PlannedPoints[0], "During the blend the planned points are the new ones.");
+            Assert.IsFalse(trail.HasFloorHeights);
+            trail.SetFloorHeights(new List<float> { 0f, 0.1f, 0.2f });
+            int revision = trail.Revision;
+
+            trail.AdvanceBlend(10.2f);
+            trail.AdvanceBlend(10.5f);
+
+            Assert.Greater(trail.Revision, revision, "The blend frames change the points.");
+            Assert.AreEqual(plan, trail.PlanVersion, "…but not the plan.");
+            Assert.IsTrue(trail.HasFloorHeights, "So the heights probed for the plan stay valid.");
+            Assert.AreSame(trail.Points, trail.PlannedPoints, "After the blend the shown points are the plan.");
+
+            trail.Assign(shifted, null, Cap, StartOffset, MinVisible);
+
+            Assert.Greater(trail.PlanVersion, plan);
+            Assert.IsFalse(trail.HasFloorHeights, "A new plan needs its own floor heights.");
+        }
+
         private static RouteHintTrail StraightTrail(float length)
         {
             List<Vector2> points = new();

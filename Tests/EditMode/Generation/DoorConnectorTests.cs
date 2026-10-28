@@ -206,6 +206,35 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
             Assert.AreEqual(DoorState.Open, connected.Rooms[2].DoorStates["c_west"]);
         }
 
+        [Test]
+        public void Connect_IncidentalDoorContactMode_SealsByDefault_AndConnectsOnlyOutsideGraphWhenAsked()
+        {
+            // Касание b_east/c_west не является ребром графа. Режим по умолчанию (и единственный годный для
+            // MissionGenerator) — запечатать; соединять вне графа — только явный режим песочницы.
+            LevelGraph graph = new(
+                new[] { new RoomNode("a", RoomKind.Passage, 2), new RoomNode("b", RoomKind.Passage, 3), new RoomNode("c", RoomKind.Passage, 1) },
+                new[] { new LevelGraphEdge("a", "b", true) });
+            Dictionary<string, IRoomTemplateDescriptor> selections = new() { ["a"] = new FakeRoomTemplate("room_a", RoomKind.Passage, doors: new IDoorSocketDescriptor[] { new FakeDoorSocket("a_east", DoorSize.Medium, DoorDirection.East) }), ["b"] = new FakeRoomTemplate("room_b", RoomKind.Passage, doors: new IDoorSocketDescriptor[] { new FakeDoorSocket("b_west", DoorSize.Medium, DoorDirection.West), new FakeDoorSocket("b_east", DoorSize.Medium, DoorDirection.East) }), ["c"] = new FakeRoomTemplate("room_c", RoomKind.Passage, doors: new IDoorSocketDescriptor[] { new FakeDoorSocket("c_west", DoorSize.Medium, DoorDirection.West) }) };
+            LevelLayout layout = new(
+                new[] { Room("a", "room_a", selections["a"], 0f, 0f), Room("b", "room_b", selections["b"], 2f, 0f), Room("c", "room_c", selections["c"], 4f, 0f) },
+                new DoorConnection[0],
+                "a",
+                new[] { "c" });
+
+            Assert.AreEqual(IncidentalDoorContactMode.Seal, new DoorConnector().IncidentalDoorContacts);
+            Assert.AreEqual(IncidentalDoorContactMode.Seal, new DoorConnector(false).IncidentalDoorContacts);
+            Assert.AreEqual(IncidentalDoorContactMode.ConnectOutsideGraph, new DoorConnector(true).IncidentalDoorContacts);
+
+            LevelLayout sealedLayout = new DoorConnector(IncidentalDoorContactMode.Seal).Connect(layout, graph, selections);
+            LevelLayout sandboxLayout =
+                new DoorConnector(IncidentalDoorContactMode.ConnectOutsideGraph).Connect(layout, graph, selections);
+
+            Assert.AreEqual(1, sealedLayout.Connections.Count);
+            Assert.AreEqual(DoorState.Disabled, sealedLayout.Rooms[1].DoorStates["b_east"]);
+            Assert.AreEqual(DoorState.Disabled, sealedLayout.Rooms[2].DoorStates["c_west"]);
+            Assert.AreEqual(2, sandboxLayout.Connections.Count);
+        }
+
 
         private static PlacedRoom Room(
             string nodeId,

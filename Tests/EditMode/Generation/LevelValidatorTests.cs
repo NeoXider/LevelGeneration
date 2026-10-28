@@ -456,6 +456,94 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
             AssertIssue(result, "KeyDependencyUnsatisfied");
         }
 
+        [Test]
+        public void Validate_DeadEndCapOverlappingNonDeadEndRoom_IsError()
+        {
+            // Раньше любое пересечение с шаблоном DeadEnd понижалось до предупреждения, и заглушка поверх
+            // комнаты основного пути уходила в игру. Теперь это ошибка: сид отклоняется.
+            LevelLayout layout = new(
+                new[] { new PlacedRoom("n_start", "room_start", new GridPose(0, 0, 0), new Dictionary<string, DoorState>()), new PlacedRoom("n_cap", "room_cap", new GridPose(0, 0, 0), new Dictionary<string, DoorState>()) },
+                new[] { new DoorConnection("n_start", "east", "n_cap", "west") },
+                "n_start",
+                new string[0]);
+            FakeRoomDatabase db = new(new IRoomTemplateDescriptor[] { new FakeRoomTemplate("room_start", RoomKind.Start), new FakeRoomTemplate("room_cap", RoomKind.DeadEnd) });
+
+            LevelValidationResult result =
+                new LevelValidator(db).Validate(layout, new FakeMissionConfig(), new FakeTileset());
+
+            AssertIssue(result, "RoomsOverlap", LevelValidationSeverity.Error);
+            Assert.IsFalse(result.Issues.Any(issue => issue.Code == "RoomsOverlap"
+                                                      && issue.Severity == LevelValidationSeverity.Warning));
+            Assert.IsFalse(result.IsValid);
+        }
+
+        [Test]
+        public void Validate_ReportsEveryOverlap_SoADeadEndWarningCannotHideAnError()
+        {
+            // n_cap_b (широкая заглушка) накрывает и заглушку n_cap_a (предупреждение: обе DeadEnd), и проход n_passage
+            // (ошибка). Раньше проверка комнаты останавливалась на первом пересечении, и ошибка терялась.
+            Dictionary<string, DoorState> noStates = new();
+            LevelLayout layout = new(
+                new[] { new PlacedRoom("n_start", "room_start", new GridPose(10, 10, 0), noStates), new PlacedRoom("n_cap_a", "room_cap", new GridPose(0, 0, 0), noStates), new PlacedRoom("n_passage", "room_passage", new GridPose(2, 0, 0), noStates), new PlacedRoom("n_cap_b", "room_cap_wide", new GridPose(0, 0, 0), noStates) },
+                new DoorConnection[0],
+                "n_start",
+                new string[0]);
+            FakeRoomDatabase db = new(new IRoomTemplateDescriptor[] { new FakeRoomTemplate("room_start", RoomKind.Start), new FakeRoomTemplate("room_cap", RoomKind.DeadEnd), new FakeRoomTemplate("room_passage", RoomKind.Passage), new FakeRoomTemplate("room_cap_wide", RoomKind.DeadEnd, footprint: new RoomFootprint(3, 1)) });
+
+            LevelValidationResult result =
+                new LevelValidator(db).Validate(layout, new FakeMissionConfig(), new FakeTileset());
+
+            Assert.IsTrue(
+                result.Issues.Any(issue => issue.Code == "RoomsOverlap"
+                                           && issue.Severity == LevelValidationSeverity.Error
+                                           && issue.Message.Contains("n_cap_b")
+                                           && issue.Message.Contains("n_passage")),
+                "The cap-over-passage overlap must be reported as an Error even after a cap-over-cap warning.");
+            Assert.IsTrue(
+                result.Issues.Any(issue => issue.Code == "RoomsOverlap"
+                                           && issue.Severity == LevelValidationSeverity.Warning
+                                           && issue.Message.Contains("n_cap_a")));
+        }
+
+        [Test]
+        public void Validate_RejectsRoomTemplateWithDuplicateConnectableSocketIds()
+        {
+            // Состояние двери адресуется по SocketId: две подключаемые двери «door» молча делили бы одно состояние.
+            LevelLayout layout = new(
+                new[] { new PlacedRoom("n_start", "dup_room", new GridPose(0, 0, 0), new Dictionary<string, DoorState>()), new PlacedRoom("n_exit", "room_exit", new GridPose(4, 0, 0), new Dictionary<string, DoorState>()) },
+                new DoorConnection[0],
+                "n_start",
+                new[] { "n_exit" });
+            FakeRoomDatabase db = new(new IRoomTemplateDescriptor[] { new FakeRoomTemplate("dup_room", RoomKind.Start, doors: new IDoorSocketDescriptor[] { new FakeDoorSocket("door", direction: DoorDirection.East), new FakeDoorSocket("door", direction: DoorDirection.West) }), new FakeRoomTemplate("room_exit", RoomKind.Exit) });
+
+            LevelValidationResult result =
+                new LevelValidator(db).Validate(layout, new FakeMissionConfig(), new FakeTileset());
+
+            Assert.IsTrue(
+                result.Issues.Any(issue => issue.Code == DoorSocketIdRules.DuplicateIssueCode
+                                           && issue.Severity == LevelValidationSeverity.Error
+                                           && issue.Message.Contains("'dup_room'")
+                                           && issue.Message.Contains("'door'")),
+                "Duplicate connectable socket ids must be an Error naming the room and the socket.");
+        }
+
+        [Test]
+        public void DoorSocketIdRules_IgnoresDuplicatesAmongNonConnectableSockets()
+        {
+            FakeRoomTemplate decorative = new(
+                "decorative_room",
+                RoomKind.Passage,
+                doors: new IDoorSocketDescriptor[] { new FakeDoorSocket("deco", initialState: DoorState.Disabled), new FakeDoorSocket("deco", initialState: DoorState.Disabled), new FakeDoorSocket("east", direction: DoorDirection.East) });
+            FakeRoomTemplate mixed = new(
+                "mixed_room",
+                RoomKind.Passage,
+                doors: new IDoorSocketDescriptor[] { new FakeDoorSocket("east", direction: DoorDirection.East), new FakeDoorSocket("east", initialState: DoorState.Disabled) });
+
+            Assert.IsFalse(DoorSocketIdRules.TryFindDuplicateConnectableSocketId(decorative, out _));
+            Assert.IsTrue(DoorSocketIdRules.TryFindDuplicateConnectableSocketId(mixed, out string socketId));
+            Assert.AreEqual("east", socketId);
+        }
+
         private static PlacedRoom Room(string nodeId, int x, int y)
         {
             return new PlacedRoom(nodeId, $"template_{nodeId}", new GridPose(x, y, 0),

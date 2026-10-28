@@ -39,6 +39,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         private readonly List<Vector2> _blendFrom = new();
         private readonly List<float> _blendFromDistances = new();
         private readonly List<Vector2> _blendTo = new();
+        private readonly List<float> _floorHeights = new();
+        private int _floorHeightsPlan = -1;
         private float _blendFromLength;
         private float _blendStartTime;
         private float _blendSeconds;
@@ -55,8 +57,51 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         /// <summary>Distance from each point to the nearest wall surface, metres (capped).</summary>
         public IReadOnlyList<float> Clearances => _clearances;
 
-        /// <summary>Grows with every <see cref="Assign"/>: views rebuild what they derive from the points.</summary>
+        /// <summary>
+        /// Grows whenever the points change — every <see cref="Assign"/> and every frame of a blend
+        /// (<see cref="AdvanceBlend"/>): views rebuild what they derive from the points.
+        /// </summary>
         public int Revision { get; private set; }
+
+        /// <summary>
+        /// Grows with every re-plan (<see cref="Assign"/>, <see cref="AssignBlended"/>, <see cref="Clear"/>) but NOT
+        /// with the frames of a blend. What is expensive to derive and depends only on the planned route — the floor
+        /// heights under it (raycasts) — is keyed on this, not on <see cref="Revision"/>.
+        /// </summary>
+        public int PlanVersion { get; private set; }
+
+        /// <summary>
+        /// Where the points end up: the planner's points. During a blend <see cref="Points"/> are still melting into
+        /// them; otherwise both are the same list. Same count as <see cref="Points"/>.
+        /// </summary>
+        public IReadOnlyList<Vector2> PlannedPoints => IsBlending ? _blendTo : _points;
+
+        /// <summary>
+        /// Floor height under each point of the current plan (<see cref="SetFloorHeights"/>), probed once per re-plan
+        /// at <see cref="PlannedPoints"/>; a blend moves the points only in XZ and keeps these heights.
+        /// </summary>
+        public IReadOnlyList<float> FloorHeights => _floorHeights;
+
+        /// <summary>The floor heights belong to the current plan and cover every point.</summary>
+        public bool HasFloorHeights => _floorHeightsPlan == PlanVersion && _floorHeights.Count == _points.Count
+                                       && _points.Count > 0;
+
+        /// <summary>Stores the floor heights probed for the current plan (one per point).</summary>
+        public void SetFloorHeights(IReadOnlyList<float> heights)
+        {
+            if (heights == null)
+            {
+                throw new ArgumentNullException(nameof(heights));
+            }
+
+            _floorHeights.Clear();
+            for (int i = 0; i < heights.Count; i++)
+            {
+                _floorHeights.Add(heights[i]);
+            }
+
+            _floorHeightsPlan = PlanVersion;
+        }
 
         public float LengthMeters { get; private set; }
 
@@ -89,6 +134,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             unchecked
             {
                 Revision++;
+                PlanVersion++;
             }
         }
 
@@ -127,6 +173,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             unchecked
             {
                 Revision++;
+                PlanVersion++;
             }
         }
 

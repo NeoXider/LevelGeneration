@@ -60,6 +60,20 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         public const float StartSnapMeters = 1.2f;
 
         private const float StepWallInsetMeters = 0.02f;
+
+        /// <summary>
+        /// Последний, «узкий» поиск держит от предмета на полу только плечо ученика, а не запас стены: проход между
+        /// партами шириной в шаг остаётся проходом. Сам контур предмета не пересекается никогда.
+        /// </summary>
+        private const float ObstacleNarrowInsetMeters = 0.3f;
+
+        /// <summary>На сколько за край предмета ученик, стоящий на нём, сходит на пол.</summary>
+        private const float ObstacleStepOffMeters = 0.35f;
+
+        /// <summary>Свободное место после схода с предмета: не впритык к стене или соседнему предмету.</summary>
+        private const float ObstacleStepOffMinClearanceMeters = 0.2f;
+
+        private static readonly float[] ObstacleStepOffRadii = { 0.5f, 0.9f, 1.4f, 2f, 3f };
         private const int RecoveryDirections = 12;
         private static readonly float[] RecoveryRadii = { 0.4f, 0.8f, 1.2f, 1.6f };
         private static readonly float[] TaskApproachRadii = { 0.25f, 0.45f, 0.7f, 1f };
@@ -285,6 +299,15 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                 return RouteHintPathOutcome.PlayerRoomUnknown;
             }
 
+            // Ученик стоит на столе или ящике: его точка в плане — внутри предмета, и путь от неё прошёл бы
+            // сквозь соседние предметы (и лента поднялась бы на их высоту). Сначала шаг вниз — на ближайшее
+            // свободное место пола за краем предмета, оттуда обычный обход.
+            if (geometry.TryGetRoom(playerRoom, out RouteHintRoom startRoom) && startRoom.IsInsideObstacle(start)
+                && TryStepOffObstacle(startRoom, start, out Vector2 floorPoint))
+            {
+                start = floorPoint;
+            }
+
             List<Vertex> vertices = BuildVertices(geometry, revealed, start, playerRoom, targetRoomId,
                 targetPoint, excludedDoor, isTransitDoorLocked);
             List<int> route = FindShortestRoute(geometry, vertices, options, out float _);
@@ -367,6 +390,146 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
+        /// The nearest free floor point next to the obstacle the student stands on: just past the nearest edge or
+        /// corner of that obstacle, on this room's floor, outside every obstacle and not pressed against a wall.
+        /// Rings around the point are the fallback when the obstacle stands in a corner.
+        /// </summary>
+        internal static bool TryStepOffObstacle(RouteHintRoom room, Vector2 point, out Vector2 floorPoint) =>
+            // Сначала только шаги, которые не пересекают ни стену, ни соседний предмет. Если стол обставлен со всех
+            // сторон и такого шага нет, — ближайший свободный пол без этой проверки: короткий шаг через скамью
+            // лучше, чем подсказка, пропавшая целиком.
+            TryStepOffObstacle(room, point, true, out floorPoint)
+            || TryStepOffObstacle(room, point, false, out floorPoint);
+
+        private static bool TryStepOffObstacle(RouteHintRoom room, Vector2 point, bool requireClearStep,
+            out Vector2 floorPoint)
+        {
+            floorPoint = point;
+            float bestDistance = float.MaxValue;
+            IReadOnlyList<RouteHintObstacle> obstacles = room.Obstacles;
+            for (int i = 0; i < obstacles.Count; i++)
+            {
+                RouteHintObstacle obstacle = obstacles[i];
+                if (!obstacle.Contains(point))
+                {
+                    continue;
+                }
+
+                Vector2 center = obstacle.Center;
+                for (int edge = 0; edge < 4; edge++)
+                {
+                    Vector2 a = obstacle.Corner(edge);
+                    Vector2 b = obstacle.Corner(edge + 1);
+                    Vector2 segment = b - a;
+                    float lengthSquared = segment.sqrMagnitude;
+                    if (lengthSquared < 0.000001f)
+                    {
+                        continue;
+                    }
+
+                    Vector2 onEdge = a + segment * Mathf.Clamp01(Vector2.Dot(point - a, segment) / lengthSquared);
+                    Vector2 outward = new Vector2(-segment.y, segment.x).normalized;
+                    if (Vector2.Dot(outward, onEdge - center) < 0f)
+                    {
+                        outward = -outward;
+                    }
+
+                    TryStepOffCandidate(room, point, onEdge + outward * ObstacleStepOffMeters, requireClearStep,
+                        ref floorPoint, ref bestDistance);
+                    Vector2 cornerOut = (a - center).normalized;
+                    TryStepOffCandidate(room, point, a + cornerOut * ObstacleStepOffMeters, requireClearStep,
+                        ref floorPoint, ref bestDistance);
+                }
+            }
+
+            if (bestDistance < float.MaxValue)
+            {
+                return true;
+            }
+
+            for (int ring = 0; ring < ObstacleStepOffRadii.Length; ring++)
+            {
+                for (int i = 0; i < RecoveryDirections * 2; i++)
+                {
+                    float angle = i * (Mathf.PI / RecoveryDirections);
+                    TryStepOffCandidate(room, point,
+                        point + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * ObstacleStepOffRadii[ring],
+                        requireClearStep, ref floorPoint, ref bestDistance);
+                }
+
+                if (bestDistance < float.MaxValue)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void TryStepOffCandidate(RouteHintRoom room, Vector2 point, Vector2 candidate,
+            bool requireClearStep, ref Vector2 best, ref float bestDistance)
+        {
+            float distance = Vector2.Distance(point, candidate);
+            if (distance >= bestDistance || !room.Contains(candidate, 0f) || room.IsInsideObstacle(candidate)
+                || room.MeasureWallClearance(candidate, ObstacleStepOffMinClearanceMeters)
+                < ObstacleStepOffMinClearanceMeters - 0.0001f
+                || requireClearStep && !IsStepOffClear(room, point, candidate))
+            {
+                return;
+            }
+
+            best = candidate;
+            bestDistance = distance;
+        }
+
+        /// <summary>
+        /// The step down from the prop the student stands on is drawn as a straight segment, so the whole segment —
+        /// not only its end — must stay clear: it may cross only the edges of the props that contain
+        /// <paramref name="from"/> (the ones being stepped off), never a wall or any other prop. Without this a
+        /// bench pushed against the table let the nearest free corner win and the first segment ran through the
+        /// bench, the very defect the obstacle-aware planner exists to remove.
+        /// </summary>
+        private static bool IsStepOffClear(RouteHintRoom room, Vector2 from, Vector2 to)
+        {
+            IReadOnlyList<RouteHintWall> blockers = room.Blockers;
+            for (int i = 0; i < blockers.Count; i++)
+            {
+                RouteHintWall wall = blockers[i];
+                if (wall.IsObstacleEdge)
+                {
+                    continue;
+                }
+
+                float clearance = wall.WidthMeters * 0.5f + StepWallInsetMeters;
+                if (SegmentsDistanceSquared(from, to, wall.A, wall.B) < clearance * clearance)
+                {
+                    return false;
+                }
+            }
+
+            IReadOnlyList<RouteHintObstacle> obstacles = room.Obstacles;
+            for (int i = 0; i < obstacles.Count; i++)
+            {
+                RouteHintObstacle obstacle = obstacles[i];
+                if (obstacle.Contains(from))
+                {
+                    continue;
+                }
+
+                for (int edge = 0; edge < 4; edge++)
+                {
+                    if (SegmentsDistanceSquared(from, to, obstacle.Corner(edge), obstacle.Corner(edge + 1))
+                        < StepWallInsetMeters * StepWallInsetMeters)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// The student stands where no first step is allowed: in a doorway between jambs, in a nook, against a
         /// wall that the recovery rule cannot leave in a straight line. He did walk there, so a short step to
         /// a nearby floor point that does not cross a wall is trusted, and the route starts from that point.
@@ -393,7 +556,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                     float angle = i * (2f * Mathf.PI / RecoveryDirections);
                     Vector2 candidate = original.Point
                                         + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * RecoveryRadii[ring];
-                    if (!room.Contains(candidate, 0f) || !IsStepWalkable(room, original.Point, candidate))
+                    if (!room.Contains(candidate, 0f) || room.IsInsideObstacle(candidate)
+                        || !IsStepWalkable(room, original.Point, candidate))
                     {
                         continue;
                     }
@@ -452,9 +616,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         /// <summary>A short step is walkable when it does not touch a wall; floor coverage is not asked.</summary>
         private static bool IsStepWalkable(RouteHintRoom room, Vector2 from, Vector2 to)
         {
-            for (int i = 0; i < room.Walls.Count; i++)
+            for (int i = 0; i < room.Blockers.Count; i++)
             {
-                RouteHintWall wall = room.Walls[i];
+                RouteHintWall wall = room.Blockers[i];
                 float clearance = wall.WidthMeters * 0.5f + StepWallInsetMeters;
                 if (SegmentsDistanceSquared(from, to, wall.A, wall.B) < clearance * clearance)
                 {
@@ -757,7 +921,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                 : IsSegmentInside(room, start, end);
         }
 
-        private static void EnsureNavigationGraph(RouteHintRoom room)
+        /// <summary>Builds the room's visibility graph once (internal: tests measure its size).</summary>
+        internal static void EnsureNavigationGraph(RouteHintRoom room)
         {
             if (room.NavigationPoints != null)
             {
@@ -771,11 +936,11 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             }
 
             // Обход концов перегородок работает и когда весь пол комнаты описан одной большой ячейкой.
-            for (int i = 0; i < room.Walls.Count; i++)
+            for (int i = 0; i < room.Blockers.Count; i++)
             {
-                RouteHintWall wall = room.Walls[i];
+                RouteHintWall wall = room.Blockers[i];
                 Vector2 direction = (wall.B - wall.A).normalized;
-                if (direction.sqrMagnitude < 0.5f)
+                if (wall.IsObstacleEdge || direction.sqrMagnitude < 0.5f)
                 {
                     continue;
                 }
@@ -793,6 +958,18 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                 AddCandidate(room, candidates, wall.A - direction * offset - normal * offset);
                 AddCandidate(room, candidates, wall.B + direction * offset + normal * offset);
                 AddCandidate(room, candidates, wall.B + direction * offset - normal * offset);
+            }
+
+            float obstacleOffset = Mathf.Max(0.22f, ObstacleNarrowInsetMeters + 0.05f);
+            for (int i = 0; i < room.Obstacles.Count; i++)
+            {
+                for (int corner = 0; corner < 4; corner++)
+                {
+                    if (TryObstacleCornerDetour(room.Obstacles[i], corner, obstacleOffset, out Vector2 detour))
+                    {
+                        AddCandidate(room, candidates, detour);
+                    }
+                }
             }
 
             int count = candidates.Count;
@@ -814,12 +991,57 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
 
         private static void AddCandidate(RouteHintRoom room, List<Vector2> candidates, Vector2 point)
         {
-            if (!room.Contains(point, 0f) || IsInsideWall(room, point))
+            if (!room.Contains(point, 0f) || IsInsideWall(room, point) || room.IsInsideObstacle(point))
             {
                 return;
             }
 
             candidates.Add(point);
+        }
+
+        /// <summary>
+        /// The detour point of one prop corner: on the corner's outer miter, <paramref name="offset"/> away from
+        /// both sides that meet there. A convex prop is passed around by its corners alone. Props used to get the
+        /// four end points per side that partitions get — 16 points per box, half of them duplicates, and the
+        /// visibility graph is quadratic in points, so a furnished room cost hundreds of milliseconds on WebGL.
+        /// </summary>
+        internal static bool TryObstacleCornerDetour(RouteHintObstacle obstacle, int corner, float offset,
+            out Vector2 detour)
+        {
+            Vector2 point = obstacle.Corner(corner);
+            Vector2 center = obstacle.Center;
+            Vector2 before = OutwardNormal(obstacle.Corner(corner + 3), point, center);
+            Vector2 after = OutwardNormal(point, obstacle.Corner(corner + 1), center);
+            detour = point;
+            if (before == Vector2.zero || after == Vector2.zero)
+            {
+                return false;
+            }
+
+            // Miter: (n1 + n2) / (1 + n1·n2) keeps the point exactly `offset` from both side lines. A sharp corner
+            // would push it far out, so the miter is capped at twice the offset.
+            Vector2 sum = before + after;
+            float denominator = 1f + Vector2.Dot(before, after);
+            Vector2 miter = denominator > 0.25f ? sum / denominator : sum.normalized * 2f;
+            if (miter.magnitude > 2f)
+            {
+                miter = miter.normalized * 2f;
+            }
+
+            detour = point + miter * offset;
+            return true;
+        }
+
+        private static Vector2 OutwardNormal(Vector2 a, Vector2 b, Vector2 center)
+        {
+            Vector2 side = b - a;
+            if (side.sqrMagnitude < 0.000001f)
+            {
+                return Vector2.zero;
+            }
+
+            Vector2 normal = new Vector2(-side.y, side.x).normalized;
+            return Vector2.Dot(normal, (a + b) * 0.5f - center) < 0f ? -normal : normal;
         }
 
         public static bool IsSegmentInside(RouteHintRoom room, Vector2 from, Vector2 to)
@@ -868,10 +1090,17 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                 return false;
             }
 
-            for (int i = 0; i < room.Walls.Count; i++)
+            // Отрезок целиком внутри предмета не задевает его сторон — его ловит проверка концов.
+            if (room.IsInsideObstacle(from) || room.IsInsideObstacle(to))
             {
-                RouteHintWall wall = room.Walls[i];
-                float inset = wallInsetMeters;
+                return false;
+            }
+
+            for (int i = 0; i < room.Blockers.Count; i++)
+            {
+                RouteHintWall wall = room.Blockers[i];
+                float inset = wall.IsObstacleEdge ? Mathf.Min(wallInsetMeters, ObstacleNarrowInsetMeters)
+                    : wallInsetMeters;
                 if ((room.IsPortal(from)
                      && PointSegmentDistanceSquared(from, wall.A, wall.B)
                      < DoorwayWallRadiusMeters * DoorwayWallRadiusMeters)
@@ -960,10 +1189,11 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
 
         private static bool IsInsideWall(RouteHintRoom room, Vector2 point)
         {
-            for (int i = 0; i < room.Walls.Count; i++)
+            for (int i = 0; i < room.Blockers.Count; i++)
             {
-                RouteHintWall wall = room.Walls[i];
-                float clearance = wall.WidthMeters * 0.5f + WallPathInsetMeters;
+                RouteHintWall wall = room.Blockers[i];
+                float inset = wall.IsObstacleEdge ? ObstacleNarrowInsetMeters : WallPathInsetMeters;
+                float clearance = wall.WidthMeters * 0.5f + inset;
                 if (PointSegmentDistanceSquared(point, wall.A, wall.B) < clearance * clearance)
                 {
                     return true;

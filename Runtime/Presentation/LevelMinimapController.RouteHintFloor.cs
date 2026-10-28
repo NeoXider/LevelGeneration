@@ -28,6 +28,13 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         private Transform _routeHintFloorProbePlayer;
         private int _routeHintFloorProbeLayers;
         private float _routeHintFloorProbeHeight;
+        private readonly List<float> _routeHintFloorHeightsScratch = new();
+
+        /// <summary>
+        /// Сколько раз пол под подсказкой прощупывался лучами: один раз на перепланирование, а не на каждый кадр
+        /// смешивания старой линии с новой (страж — EditMode-тест).
+        /// </summary>
+        internal int RouteHintFloorProbeBuildCount { get; private set; }
 
         private enum RouteHintFloorBuild
         {
@@ -141,8 +148,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                      && _routeHintFloorBuiltRevision != _routeHintTrail.Revision
                      && frame.Phase != RouteHintRevealPhase.Hidden && frame.Phase != RouteHintRevealPhase.FloorDone)
             {
-                // The trail was re-planned (the student left it): the stars follow the new points without
-                // restarting the reveal. Floor heights are probed here, once per re-plan, never per frame.
+                // The trail was re-planned (the student left it) or is melting into the new plan: the stars follow
+                // the points without restarting the reveal. Floor heights are probed once per re-plan
+                // (RouteHintTrail.PlanVersion); the frames of a blend only move the points in XZ.
                 if (RebuildRouteHintFloor(config, true) == RouteHintFloorBuild.Failed)
                 {
                     _routeHintFloorFailedVersion = _routeHintFloorPathVersion;
@@ -219,8 +227,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         /// <summary>
         /// Звёзды получают те же точки, что рисует миникарта: общую линию <see cref="RouteHintTrail"/> без
         /// пересглаживания и пересэмплирования. Здесь только добавляется высота пола под каждой точкой
-        /// (<see cref="RouteHintFloorRaycastProbe"/>). Вызывается при начале показа и при каждом перепланировании,
-        /// но не каждый кадр.
+        /// (<see cref="RouteHintFloorRaycastProbe"/>). Лучи к полу — один раз на план: на начале показа и после
+        /// перепланирования; кадры смешивания линий (<see cref="RouteHintTrail.AdvanceBlend"/>) сдвигают точки
+        /// только по XZ и берут высоты плана из линии.
         /// </summary>
         private RouteHintFloorBuild RebuildRouteHintFloor(LevelMinimapSettings config, bool refresh)
         {
@@ -236,15 +245,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 return RouteHintFloorBuild.PathNotReady;
             }
 
-            Transform player = ResolvePlayerTransform();
-            EnsureRouteHintFloorProbe(config, player);
-            Vector2 start = _routeHintTrail.Points[0];
-            float playerHeight = player != null ? player.position.y : 0f;
-            float startFloor = _routeHintFloorProbe.Probe(start, playerHeight, out float underStart)
-                ? underStart : playerHeight;
-            bool built = RouteHintRibbonMeshBuilder.BuildFromAxis(_routeHintTrail.Points,
-                config.CreateRouteHintRibbonShape(), startFloor, _routeHintFloorProbeCallback, _routeHintRibbon,
-                out RouteHintRibbonFailure failure);
+            bool built = BuildRouteHintRibbon(config, out RouteHintRibbonFailure failure);
             if (built && (refresh
                     ? _routeHintFloorView.UpdatePath(_routeHintRibbon, _routeHintTrail.Clearances)
                     : _routeHintFloorView.Show(_routeHintRibbon, _routeHintTrail.Clearances, config)))
@@ -263,6 +264,41 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             }
 
             return RouteHintFloorBuild.Failed;
+        }
+
+        /// <summary>
+        /// Лента под текущими точками линии. Высоты пола плана ещё не известны — лучи прощупывают пол под
+        /// точками ПЛАНА (куда линия придёт, а не где она сейчас в середине смешивания), и высоты остаются в
+        /// линии; дальше лента строится по ним без единого луча. Без смешивания точки плана и есть текущие, и
+        /// результат совпадает с прежним построением по лучам.
+        /// </summary>
+        private bool BuildRouteHintRibbon(LevelMinimapSettings config, out RouteHintRibbonFailure failure)
+        {
+            RouteHintRibbonShape shape = config.CreateRouteHintRibbonShape();
+            if (!_routeHintTrail.HasFloorHeights)
+            {
+                Transform player = ResolvePlayerTransform();
+                EnsureRouteHintFloorProbe(config, player);
+                IReadOnlyList<Vector2> planned = _routeHintTrail.PlannedPoints;
+                float playerHeight = player != null ? player.position.y : 0f;
+                float startFloor = _routeHintFloorProbe.Probe(planned[0], playerHeight, out float underStart)
+                    ? underStart : playerHeight;
+                RouteHintFloorProbeBuildCount++;
+                if (!RouteHintRibbonMeshBuilder.BuildFromAxis(planned, shape, startFloor,
+                        _routeHintFloorProbeCallback, _routeHintRibbon, out failure, _routeHintFloorHeightsScratch))
+                {
+                    return false;
+                }
+
+                _routeHintTrail.SetFloorHeights(_routeHintFloorHeightsScratch);
+                if (!_routeHintTrail.IsBlending)
+                {
+                    return true;
+                }
+            }
+
+            return RouteHintRibbonMeshBuilder.BuildFromAxisAtHeights(_routeHintTrail.Points,
+                _routeHintTrail.FloorHeights, shape, _routeHintRibbon, out failure);
         }
 
         private void EnsureRouteHintFloorProbe(LevelMinimapSettings config, Transform player)

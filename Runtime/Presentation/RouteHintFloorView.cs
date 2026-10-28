@@ -32,7 +32,17 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         private bool _hasPath;
         private bool _hasClearances;
 
+        /// <summary>
+        /// Звёзды уже погашены и с тех пор ничего не показывалось: повторный <see cref="Hide"/> ничего не делает.
+        /// Контроллер карты зовёт <see cref="Hide"/> каждый кадр, пока подсказка скрыта, а остановка системы частиц
+        /// обходит всю её иерархию.
+        /// </summary>
+        private bool _sparklesCleared;
+
         public bool HasPath => _hasPath;
+
+        /// <summary>Сколько раз звёзды действительно гасились (страж идемпотентного <see cref="Hide"/>).</summary>
+        internal int SparkleStopCount { get; private set; }
         // Compatibility with callers using the old floor-view contract; no ribbon is drawn.
         public bool HasRibbon => _hasPath;
         public bool IsRibbonVisible => false;
@@ -61,6 +71,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
         {
             sparkles = value;
             _particleRenderer = null;
+            _sparklesCleared = false;
         }
 
         private void Awake()
@@ -156,6 +167,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
                 StopSparkles();
                 return;
             }
+            _sparklesCleared = false;
             if (!sparkles.isPlaying)
             {
                 sparkles.Play(false);
@@ -184,9 +196,17 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             sparkles.SetParticles(_particles, count);
         }
 
-        /// <summary>Clears frozen stars too when the unscaled UI fade completes during pause.</summary>
+        /// <summary>
+        /// Clears frozen stars too when the unscaled UI fade completes during pause. Idempotent: hiding a view that
+        /// is already hidden and cleared does not touch the particle system again.
+        /// </summary>
         public void Hide()
         {
+            if (!_hasPath && _sparklesCleared)
+            {
+                return;
+            }
+
             _hasPath = false;
             HeadDistance = 0f;
             RevealProgress = 0f;
@@ -228,6 +248,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
             {
                 _particleRenderer.enabled = false;
             }
+
+            _sparklesCleared = true;
+            SparkleStopCount++;
         }
 
         private void EnsureParticleRenderer()

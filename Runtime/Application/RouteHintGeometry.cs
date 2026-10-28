@@ -20,10 +20,25 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         public IReadOnlyList<RouteHintDoor> Doors => _doors;
         public int RoomCount => _rooms.Count;
 
+        /// <summary>
+        /// Растёт при каждой правке геометрии (комната, дверь, очистка): производные кэши — например, отбор стен
+        /// рядом с подсказкой на миникарте — пересобираются по нему, а не каждый кадр.
+        /// </summary>
+        public int Version { get; private set; }
+
         public void Clear()
         {
             _rooms.Clear();
             _doors.Clear();
+            BumpVersion();
+        }
+
+        private void BumpVersion()
+        {
+            unchecked
+            {
+                Version++;
+            }
         }
 
         public void AddRoom(MinimapRoomSnapshot room) =>
@@ -42,6 +57,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             }
 
             _rooms[nodeId] = new RouteHintRoom(nodeId, origin, rotationDegrees, cells, walls);
+            BumpVersion();
         }
 
         public void AddDoor(string nodeA, string socketA, string nodeB, string socketB, Vector2 point,
@@ -63,6 +79,24 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             {
                 roomB.RegisterPortal(point, halfWidthMeters);
             }
+
+            BumpVersion();
+        }
+
+        /// <summary>
+        /// Сплошной предмет на полу комнаты (мебель, реквизит): путь обходит его контур с тем же запасом, что и
+        /// стены, и не пересекает его. Предмет, накрывающий дверной проём, не учитывается: проём — проход по
+        /// раскладке уровня, и стоять в нём может только часть двери.
+        /// </summary>
+        public void AddObstacle(string nodeId, RouteHintObstacle obstacle)
+        {
+            if (string.IsNullOrEmpty(nodeId) || !_rooms.TryGetValue(nodeId, out RouteHintRoom room))
+            {
+                return;
+            }
+
+            room.AddObstacle(obstacle);
+            BumpVersion();
         }
 
         public bool TryGetRoom(string nodeId, out RouteHintRoom room)
@@ -191,11 +225,189 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         public readonly Vector2 B;
         public readonly float WidthMeters;
 
-        public RouteHintWall(Vector2 a, Vector2 b, float widthMeters)
+        /// <summary>
+        /// Сторона контура препятствия на полу (<see cref="RouteHintObstacle"/>), а не стена. Пересекать её
+        /// нельзя так же, как стену; отличие одно — последний, «узкий» поиск пути держится от предмета на
+        /// расстоянии плеча ученика, а не на запасе стены, иначе ряды парт оставались бы без маршрута.
+        /// </summary>
+        public readonly bool IsObstacleEdge;
+
+        public RouteHintWall(Vector2 a, Vector2 b, float widthMeters) : this(a, b, widthMeters, false)
+        {
+        }
+
+        public RouteHintWall(Vector2 a, Vector2 b, float widthMeters, bool isObstacleEdge)
         {
             A = a;
             B = b;
             WidthMeters = widthMeters;
+            IsObstacleEdge = isObstacleEdge;
+        }
+    }
+
+    /// <summary>
+    /// Сплошное препятствие на полу комнаты в плане (мебель, реквизит, пульт): выпуклый четырёхугольник в мире XZ,
+    /// углы по кругу. Путь подсказки не пересекает его контур и держится от него на том же запасе, что и от стен;
+    /// точка внутри (ученик стоит на столе) — не пол, а место, с которого сначала надо сойти.
+    /// </summary>
+    public readonly struct RouteHintObstacle
+    {
+        public readonly Vector2 A;
+        public readonly Vector2 B;
+        public readonly Vector2 C;
+        public readonly Vector2 D;
+
+        public RouteHintObstacle(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+        {
+            A = a;
+            B = b;
+            C = c;
+            D = d;
+        }
+
+        /// <summary>Повёрнутый прямоугольник: центр и полуоси (векторы от центра к серединам сторон).</summary>
+        public static RouteHintObstacle FromBox(Vector2 center, Vector2 halfAxisX, Vector2 halfAxisZ) => new(
+            center - halfAxisX - halfAxisZ, center + halfAxisX - halfAxisZ, center + halfAxisX + halfAxisZ,
+            center - halfAxisX + halfAxisZ);
+
+        /// <summary>Прямоугольник по осям мира.</summary>
+        public static RouteHintObstacle FromRect(Rect rect) => new(new Vector2(rect.xMin, rect.yMin),
+            new Vector2(rect.xMax, rect.yMin), new Vector2(rect.xMax, rect.yMax), new Vector2(rect.xMin, rect.yMax));
+
+        public Vector2 Corner(int index) => (index & 3) switch
+        {
+            0 => A,
+            1 => B,
+            2 => C,
+            _ => D
+        };
+
+        public Vector2 Center => (A + B + C + D) * 0.25f;
+
+        /// <summary>Площадь контура, м².</summary>
+        public float Area => Mathf.Abs(DoubledSignedArea()) * 0.5f;
+
+        public bool HasArea => Area > 0.00005f;
+
+        /// <summary>Точка внутри контура (на границе — тоже). Вырожденный контур (без площади) ничего не содержит.</summary>
+        public bool Contains(Vector2 point)
+        {
+            if (!HasArea)
+            {
+                return false;
+            }
+
+            bool anyPositive = false;
+            bool anyNegative = false;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 from = Corner(i);
+                Vector2 to = Corner(i + 1);
+                float cross = (to.x - from.x) * (point.y - from.y) - (to.y - from.y) * (point.x - from.x);
+                anyPositive |= cross > 0.000001f;
+                anyNegative |= cross < -0.000001f;
+            }
+
+            return !(anyPositive && anyNegative);
+        }
+
+        /// <summary>Расстояние от точки до контура; внутри — 0.</summary>
+        public float DistanceTo(Vector2 point)
+        {
+            if (Contains(point))
+            {
+                return 0f;
+            }
+
+            float best = float.MaxValue;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 from = Corner(i);
+                Vector2 segment = Corner(i + 1) - from;
+                float lengthSquared = segment.sqrMagnitude;
+                float t = lengthSquared > 0.000001f
+                    ? Mathf.Clamp01(Vector2.Dot(point - from, segment) / lengthSquared) : 0f;
+                best = Mathf.Min(best, (point - (from + segment * t)).magnitude);
+            }
+
+            return best;
+        }
+
+        private float DoubledSignedArea()
+        {
+            float doubled = 0f;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 from = Corner(i);
+                Vector2 to = Corner(i + 1);
+                doubled += from.x * to.y - to.x * from.y;
+            }
+
+            return doubled;
+        }
+    }
+
+    /// <summary>Чем коллайдер комнаты приходится подсказке маршрута (<see cref="ClassifyRouteHintColliderUseCase"/>).</summary>
+    public enum RouteHintColliderRole
+    {
+        /// <summary>Сплошной предмет на полу: обходить — не перешагнуть и не пройти под ним.</summary>
+        Obstacle = 0,
+
+        /// <summary>Пол, ковёр, порожек: верх не выше шага — по нему ходят.</summary>
+        Walkable = 1,
+
+        /// <summary>Висит выше роста ученика (светильник, балка): под ним проходят.</summary>
+        Overhead = 2,
+
+        /// <summary>
+        /// Накрывает большую часть пола комнаты: это объём комнаты (границы, оболочка), а не предмет — как
+        /// препятствие он закрыл бы всю комнату. Дефект настройки коллайдера, а не повод терять маршрут.
+        /// </summary>
+        TooLarge = 3,
+
+        /// <summary>Не сплошной предмет: триггер, выключен, часть двери или стены, архитектурный меш.</summary>
+        Ignored = 4
+    }
+
+    /// <summary>
+    /// Решает, препятствие ли коллайдер для подсказки маршрута, по его высотам над полом комнаты и площади в
+    /// плане. Без состояния: факты (сплошной ли это предмет, высоты, площадь) собирает адаптер физики, решение —
+    /// здесь.
+    /// </summary>
+    public static class ClassifyRouteHintColliderUseCase
+    {
+        /// <summary>Выше этого над полом низ предмета висит над головой: под ним проходят.</summary>
+        public const float HeadroomMeters = 1.8f;
+
+        /// <summary>Доля пола комнаты, которую предмет не может накрыть (иначе это объём комнаты).</summary>
+        public const float MaxRoomFloorFraction = 0.5f;
+
+        public static RouteHintColliderRole Execute(bool solidProp, float bottomAboveFloorMeters,
+            float topAboveFloorMeters, float footprintAreaSquareMeters, float roomFloorAreaSquareMeters,
+            float stepMeters)
+        {
+            if (!solidProp)
+            {
+                return RouteHintColliderRole.Ignored;
+            }
+
+            if (topAboveFloorMeters <= Mathf.Max(0f, stepMeters))
+            {
+                return RouteHintColliderRole.Walkable;
+            }
+
+            if (bottomAboveFloorMeters >= HeadroomMeters)
+            {
+                return RouteHintColliderRole.Overhead;
+            }
+
+            if (roomFloorAreaSquareMeters > 0f
+                && footprintAreaSquareMeters > roomFloorAreaSquareMeters * MaxRoomFloorFraction)
+            {
+                return RouteHintColliderRole.TooLarge;
+            }
+
+            return RouteHintColliderRole.Obstacle;
         }
     }
 
@@ -239,11 +451,17 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
 
         private const float AdjacencyEpsilonMeters = 0.01f;
 
+        /// <summary>Предмет ближе этого к центру дверного проёма — часть двери, а не препятствие.</summary>
+        public const float PortalObstacleKeepOutMeters = 0.35f;
+
         private readonly float _cos;
         private readonly float _sin;
         private readonly List<RouteHintWall> _walls;
         private readonly List<Vector2> _portals = new();
         private readonly Dictionary<Vector2, Vector2> _portalTangents = new();
+        private readonly List<RouteHintObstacle> _obstacles = new();
+        private readonly List<RouteHintObstacle> _activeObstacles = new();
+        private readonly List<RouteHintWall> _blockers = new();
 
         public RouteHintRoom(string nodeId, Vector2 origin, float rotationDegrees,
             IReadOnlyList<MinimapCellSnapshot> cells, IReadOnlyList<RouteHintWall> walls = null)
@@ -256,13 +474,94 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             float radians = rotationDegrees * Mathf.Deg2Rad;
             _cos = Mathf.Cos(radians);
             _sin = Mathf.Sin(radians);
+            RebuildBlockers();
         }
 
         public string NodeId { get; }
         public Vector2 Origin { get; }
         public float RotationDegrees { get; }
         public IReadOnlyList<MinimapCellSnapshot> Cells { get; }
+        /// <summary>Стены комнаты (то, что рисует миникарта), с вырезанными дверными проёмами.</summary>
         public IReadOnlyList<RouteHintWall> Walls => _walls;
+
+        /// <summary>Препятствия на полу, которые путь обходит (без тех, что стоят в дверном проёме).</summary>
+        public IReadOnlyList<RouteHintObstacle> Obstacles => _activeObstacles;
+
+        /// <summary>
+        /// Всё, что путь не пересекает и от чего держит запас: стены и стороны контуров препятствий
+        /// (<see cref="RouteHintWall.IsObstacleEdge"/>). Планировщик проверяет отрезки по этому списку.
+        /// </summary>
+        public IReadOnlyList<RouteHintWall> Blockers => _blockers;
+
+        /// <summary>Точка внутри препятствия: не пол — отсюда путь начинается с шага на свободное место.</summary>
+        public bool IsInsideObstacle(Vector2 world)
+        {
+            for (int i = 0; i < _activeObstacles.Count; i++)
+            {
+                if (_activeObstacles[i].Contains(world))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal void AddObstacle(RouteHintObstacle obstacle)
+        {
+            _obstacles.Add(obstacle);
+            RebuildBlockers();
+            InvalidateNavigation();
+        }
+
+        /// <summary>
+        /// Стены плюс стороны препятствий, кроме тех, что накрывают дверной проём (их ставит дверь, а проём по
+        /// раскладке — проход).
+        /// </summary>
+        private void RebuildBlockers()
+        {
+            _blockers.Clear();
+            _blockers.AddRange(_walls);
+            _activeObstacles.Clear();
+            for (int i = 0; i < _obstacles.Count; i++)
+            {
+                RouteHintObstacle obstacle = _obstacles[i];
+                if (CoversPortal(obstacle))
+                {
+                    continue;
+                }
+
+                _activeObstacles.Add(obstacle);
+                for (int corner = 0; corner < 4; corner++)
+                {
+                    _blockers.Add(new RouteHintWall(obstacle.Corner(corner), obstacle.Corner(corner + 1), 0f, true));
+                }
+            }
+        }
+
+        private bool CoversPortal(RouteHintObstacle obstacle)
+        {
+            for (int i = 0; i < _portals.Count; i++)
+            {
+                if (obstacle.DistanceTo(_portals[i]) < PortalObstacleKeepOutMeters)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void InvalidateNavigation()
+        {
+            NavigationPoints = null;
+            NavigationDistances = null;
+            LastTaskAnchor = null;
+            LastTaskDestination = null;
+            DoorPairPaths.Clear();
+            ClearanceGraphs.Clear();
+            ClearanceDoorPairPaths.Clear();
+        }
         internal bool IsPortal(Vector2 point)
         {
             for (int i = 0; i < _portals.Count; i++)
@@ -334,11 +633,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
 
             _walls.Clear();
             _walls.AddRange(remaining);
-            NavigationPoints = null;
-            NavigationDistances = null;
-            DoorPairPaths.Clear();
-            ClearanceGraphs.Clear();
-            ClearanceDoorPairPaths.Clear();
+            RebuildBlockers();
+            InvalidateNavigation();
         }
 
         /// <summary>
@@ -449,13 +745,21 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             return true;
         }
 
-        /// <summary>Distance from a world point to the nearest wall surface of this room, capped.</summary>
+        /// <summary>
+        /// Distance from a world point to the nearest wall or obstacle surface of this room, capped; zero inside an
+        /// obstacle.
+        /// </summary>
         internal float MeasureWallClearance(Vector2 world, float capMeters)
         {
-            float best = Mathf.Max(0f, capMeters);
-            for (int i = 0; i < _walls.Count; i++)
+            if (IsInsideObstacle(world))
             {
-                RouteHintWall wall = _walls[i];
+                return 0f;
+            }
+
+            float best = Mathf.Max(0f, capMeters);
+            for (int i = 0; i < _blockers.Count; i++)
+            {
+                RouteHintWall wall = _blockers[i];
                 float reach = best + wall.WidthMeters * 0.5f;
                 if (world.x < Mathf.Min(wall.A.x, wall.B.x) - reach || world.x > Mathf.Max(wall.A.x, wall.B.x) + reach
                     || world.y < Mathf.Min(wall.A.y, wall.B.y) - reach

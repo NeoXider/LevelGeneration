@@ -1,10 +1,24 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
 using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
 using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
 
 namespace RedoSchool.Features.LevelGeneration.Generation.Application
 {
+    /// <summary>
+    /// Ссылочное равенство шаблонов комнат для кэшей на время одного прогона (снимки шаблонов, начальные состояния
+    /// дверей): шаблоны не переопределяют равенство осмысленно, а Unity API в рабочем потоке трогать нельзя.
+    /// </summary>
+    internal sealed class TemplateReferenceComparer : IEqualityComparer<IRoomTemplateDescriptor>
+    {
+        public static readonly TemplateReferenceComparer Instance = new();
+
+        public bool Equals(IRoomTemplateDescriptor x, IRoomTemplateDescriptor y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(IRoomTemplateDescriptor obj) => RuntimeHelpers.GetHashCode(obj);
+    }
+
     /// <summary>
     /// Immutable plain C# copy of a room template descriptor.
     /// Used by async/off-main-thread generation steps so placement never reads Unity objects.

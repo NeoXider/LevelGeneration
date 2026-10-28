@@ -83,13 +83,30 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
         public void ValidatePrefab_AllowsDoorPivotInsideFootprint()
         {
             GameObject root = CreateRoom(new Vector3(5f, 3f, 5f), new Vector3(2.5f, 1.5f, 2.5f));
-            AddDoor(root, "east", new Vector3(0f, 0f, 2.5f), DoorDirection.East);
+            // Разные id: одинаковые id сокетов — отдельный дефект (ValidatePrefab_RejectsDuplicateSocketIds).
+            AddDoor(root, "east_inner", new Vector3(0f, 0f, 2.5f), DoorDirection.East);
             AddDoor(root, "east", new Vector3(5f, 0f, 2.5f), DoorDirection.East);
             RefreshRoomTemplate(root);
 
             IReadOnlyList<string> issues = root.GetComponent<RoomPrefabGridValidator>().ValidatePrefab();
 
             Assert.IsEmpty(issues);
+        }
+
+        [Test]
+        public void ValidatePrefab_RejectsDuplicateSocketIds()
+        {
+            // Состояние двери адресуется по SocketId: две подключаемые двери «east» молча делили бы одно состояние.
+            GameObject root = CreateRoom(new Vector3(5f, 3f, 5f), new Vector3(2.5f, 1.5f, 2.5f));
+            AddDoor(root, "east", new Vector3(0f, 0f, 2.5f), DoorDirection.East);
+            AddDoor(root, "east", new Vector3(5f, 0f, 2.5f), DoorDirection.East);
+            RefreshRoomTemplate(root);
+
+            IReadOnlyList<string> issues = root.GetComponent<RoomPrefabGridValidator>().ValidatePrefab();
+
+            Assert.IsTrue(
+                issues.Any(issue => issue.Contains("several door sockets with id 'east'")),
+                "Duplicate connectable socket ids must be reported by the prefab contract.");
         }
 
         [Test]

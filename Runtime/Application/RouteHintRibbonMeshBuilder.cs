@@ -11,9 +11,12 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
     public delegate bool RouteHintFloorProbe(Vector2 point, float fromFloorHeight, out float hitHeight);
 
     /// <summary>
-    /// Какую высоту принять для очередной точки ленты: попадание луча, если оно не дальше
-    /// <c>maxStepMeters</c> от ПРЕДЫДУЩЕЙ принятой точки (лестница и пандус ступенька за ступенькой), иначе
-    /// высоту предыдущей точки (ящик, стол, декор — лента остаётся на полу).
+    /// Какую высоту принять для очередной точки ленты. ПОДЪЁМ — только в пределах <c>maxStepMeters</c> от
+    /// ПРЕДЫДУЩЕЙ принятой точки (лестница и пандус ступенька за ступенькой), иначе высота предыдущей точки
+    /// (ящик, стол, декор — лента остаётся на полу). СПУСК принимается всегда: луч бьёт в ближайшую поверхность
+    /// под собой, и поверхность ниже предыдущей точки — это пол, на который сошли (со стола, с ящика, со
+    /// ступени). Раньше спуск больше шага тоже отвергался, и лента, начатая на столе под учеником, так и
+    /// висела на высоте стола через всю комнату, перелезая через стулья.
     /// </summary>
     public static class ResolveRouteHintFloorHeightUseCase
     {
@@ -24,7 +27,12 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                 return previousHeight;
             }
 
-            return Math.Abs(hitHeight - previousHeight) <= Math.Max(0f, maxStepMeters) ? hitHeight : previousHeight;
+            if (hitHeight <= previousHeight)
+            {
+                return hitHeight;
+            }
+
+            return hitHeight - previousHeight <= Math.Max(0f, maxStepMeters) ? hitHeight : previousHeight;
         }
     }
 
@@ -188,6 +196,63 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             float startFloorHeight,
             RouteHintFloorProbe probe,
             RouteHintRibbonMeshData output,
+            out RouteHintRibbonFailure failure) =>
+            BuildAxisCore(axis, shape, startFloorHeight, probe, null, null, output, out failure);
+
+        /// <summary>
+        /// Same as <see cref="BuildFromAxis(IReadOnlyList{Vector2}, RouteHintRibbonShape, float, RouteHintFloorProbe, RouteHintRibbonMeshData, out RouteHintRibbonFailure)"/>
+        /// and also returns the accepted floor height under every axis point (<paramref name="floorHeights"/>, one per
+        /// point, without the lift). The route hint probes once per re-plan and keeps these heights in the trail.
+        /// </summary>
+        public static bool BuildFromAxis(
+            IReadOnlyList<Vector2> axis,
+            RouteHintRibbonShape shape,
+            float startFloorHeight,
+            RouteHintFloorProbe probe,
+            RouteHintRibbonMeshData output,
+            out RouteHintRibbonFailure failure,
+            List<float> floorHeights) =>
+            BuildAxisCore(axis, shape, startFloorHeight, probe, null, floorHeights, output, out failure);
+
+        /// <summary>
+        /// The ribbon for an already smoothed axis whose floor heights are known (one per point, without the lift):
+        /// no probes at all. A blend of the trail moves the points only in XZ, and the heights probed for the plan
+        /// stay valid, so the floor follows the morph without a raycast per point per frame. With the heights that
+        /// <see cref="BuildFromAxis(IReadOnlyList{Vector2}, RouteHintRibbonShape, float, RouteHintFloorProbe, RouteHintRibbonMeshData, out RouteHintRibbonFailure, List{float})"/>
+        /// returned for the same points, the result is the same ribbon.
+        /// </summary>
+        public static bool BuildFromAxisAtHeights(
+            IReadOnlyList<Vector2> axis,
+            IReadOnlyList<float> floorHeights,
+            RouteHintRibbonShape shape,
+            RouteHintRibbonMeshData output,
+            out RouteHintRibbonFailure failure)
+        {
+            if (output == null)
+            {
+                throw new ArgumentNullException(nameof(output));
+            }
+
+            if (axis == null || floorHeights == null || floorHeights.Count < axis.Count || floorHeights.Count == 0)
+            {
+                output.Clear();
+                failure = RouteHintRibbonFailure.Degenerate;
+                return false;
+            }
+
+            return BuildAxisCore(axis, shape, floorHeights[0], null, floorHeights, null, output, out failure);
+        }
+
+        /// <param name="knownHeights">Floor height per point; when set, <paramref name="probe"/> is not used.</param>
+        /// <param name="heightsOut">Receives the accepted floor height per point, if set.</param>
+        private static bool BuildAxisCore(
+            IReadOnlyList<Vector2> axis,
+            RouteHintRibbonShape shape,
+            float startFloorHeight,
+            RouteHintFloorProbe probe,
+            IReadOnlyList<float> knownHeights,
+            List<float> heightsOut,
+            RouteHintRibbonMeshData output,
             out RouteHintRibbonFailure failure)
         {
             if (output == null)
@@ -196,6 +261,7 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
             }
 
             output.Clear();
+            heightsOut?.Clear();
             failure = RouteHintRibbonFailure.None;
             if (axis == null || axis.Count < 2 || !IsFinite(startFloorHeight))
             {
@@ -209,12 +275,12 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
                 return false;
             }
 
+            // Длина считается первым проходом, расстояние до точки — накоплением во втором, в том же порядке
+            // сложений: без списка расстояний на каждое построение (лента строится и на кадрах смешивания).
             float total = 0f;
-            List<float> distances = new(axis.Count) { 0f };
             for (int i = 1; i < axis.Count; i++)
             {
                 total += Vector2.Distance(axis[i - 1], axis[i]);
-                distances.Add(total);
             }
 
             if (total <= DuplicatePointMeters || !IsFinite(total))
@@ -225,20 +291,34 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
 
             float halfWidth = shape.WidthMeters * 0.5f;
             float floor = startFloorHeight;
+            float distance = 0f;
             for (int i = 0; i < axis.Count; i++)
             {
                 Vector2 point = axis[i];
-                bool hit = false;
-                float hitHeight = floor;
-                if (probe != null)
+                if (i > 0)
                 {
-                    hit = probe(point, floor, out hitHeight);
+                    distance += Vector2.Distance(axis[i - 1], point);
                 }
 
-                floor = ResolveRouteHintFloorHeightUseCase.Execute(hit, hitHeight, floor, shape.MaxStepMeters);
+                if (knownHeights != null)
+                {
+                    floor = knownHeights[i];
+                }
+                else
+                {
+                    bool hit = false;
+                    float hitHeight = floor;
+                    if (probe != null)
+                    {
+                        hit = probe(point, floor, out hitHeight);
+                    }
+
+                    floor = ResolveRouteHintFloorHeightUseCase.Execute(hit, hitHeight, floor, shape.MaxStepMeters);
+                }
+
+                heightsOut?.Add(floor);
                 Vector2 incoming = i > 0 ? (point - axis[i - 1]).normalized : Vector2.zero;
                 Vector2 outgoing = i < axis.Count - 1 ? (axis[i + 1] - point).normalized : Vector2.zero;
-                float distance = distances[i];
                 if (IsReversal(incoming, outgoing))
                 {
                     // Разворот назад: шов из двух пар вершин в одной точке — к ней по входящему направлению,

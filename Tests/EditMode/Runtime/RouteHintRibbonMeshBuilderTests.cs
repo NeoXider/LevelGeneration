@@ -34,6 +34,41 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             }
         }
 
+        /// <summary>
+        /// Лента по уже известным высотам (кадры смешивания линии) — та же лента, что по лучам: высоты, которые
+        /// построение по лучам вернуло, дают те же вершины без единого луча.
+        /// </summary>
+        [Test]
+        public void BuildFromAxisAtHeights_HeightsOfAProbedBuild_GiveTheSameRibbonWithoutProbes()
+        {
+            List<Vector2> axis = new();
+            for (float x = 0f; x <= 6.001f; x += 0.25f)
+            {
+                axis.Add(new Vector2(x, Mathf.Sin(x) * 0.5f));
+            }
+
+            RouteHintRibbonMeshData probed = new();
+            List<float> heights = new();
+            Assert.IsTrue(RouteHintRibbonMeshBuilder.BuildFromAxis(axis, Shape, 0f, Stairs, probed,
+                out RouteHintRibbonFailure _, heights));
+            Assert.AreEqual(axis.Count, heights.Count, "One floor height per axis point.");
+            RouteHintRibbonMeshData known = new();
+
+            Assert.IsTrue(RouteHintRibbonMeshBuilder.BuildFromAxisAtHeights(axis, heights, Shape, known,
+                out RouteHintRibbonFailure _));
+
+            Assert.AreEqual(probed.Vertices.Count, known.Vertices.Count);
+            for (int i = 0; i < probed.Vertices.Count; i++)
+            {
+                Assert.AreEqual(probed.Vertices[i], known.Vertices[i], $"vertex {i}");
+                Assert.AreEqual(probed.Uv0[i], known.Uv0[i], $"uv0 {i}");
+                Assert.AreEqual(probed.Uv1[i], known.Uv1[i], $"uv1 {i}");
+            }
+
+            CollectionAssert.AreEqual(probed.Triangles, known.Triangles);
+            Assert.AreEqual(probed.LengthMeters, known.LengthMeters);
+        }
+
         [Test]
         public void Build_AlongPath_DistanceAndProgressGrowFromPlayerToTarget()
         {

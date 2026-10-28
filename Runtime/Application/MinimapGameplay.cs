@@ -18,8 +18,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
     }
 
     /// <summary>
-    /// Что карте уровня нужно знать об игре, в которую она встроена: где ученик, свободна ли клавиатура и как
-    /// описать состояние управления в диагностике. Реализует игра; пакет об устройстве её ввода не знает.
+    /// Что карте уровня нужно знать об игре, в которую она встроена: где ученик, нажата ли клавиша большой
+    /// карты и как описать состояние управления в диагностике. Реализует игра; пакет об устройстве её ввода не
+    /// знает и устройства сам не читает — ни напрямую, ни через reflection.
     /// </summary>
     public interface IMinimapGameplayContext
     {
@@ -27,9 +28,11 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
         RouteHintPresence Presence { get; }
 
         /// <summary>
-        /// Клавиатурой владеет интерфейс (чат, поле ввода): геймплейная клавиша большой карты молчит.
+        /// В этом кадре нажата геймплейная клавиша большой карты. Хозяин читает свой ввод сам и обязан молчать,
+        /// пока клавиатурой владеет интерфейс (чат, поле ввода): иначе буква, напечатанная в чате, разворачивала
+        /// бы карту поверх него.
         /// </summary>
-        bool IsGameplayKeyboardBlocked { get; }
+        bool WasFullMapTogglePressed { get; }
 
         /// <summary>Фрагмент диагностической строки подсказки о состоянии управления, без ведущего пробела.</summary>
         string DescribeControl();
@@ -38,7 +41,8 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
     /// <summary>
     /// Точка подключения <see cref="IMinimapGameplayContext"/>. Игра назначает свою реализацию при запуске
     /// (после <see cref="RuntimeInitializeLoadType.SubsystemRegistration"/>); без неё карта работает
-    /// автономно: ученик всегда в мире, клавиатура свободна.
+    /// автономно: ученик всегда в мире, а клавиша большой карты — <c>M</c> старого менеджера ввода, если он
+    /// включён в проекте (без него — никогда).
     /// </summary>
     public static class MinimapGameplay
     {
@@ -63,7 +67,21 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Application
 
             public RouteHintPresence Presence => RouteHintPresence.Exploring;
 
-            public bool IsGameplayKeyboardBlocked => false;
+            /// <summary>
+            /// Без хозяина ввод читать некому, кроме старого менеджера: он доступен без сторонних сборок. Новый
+            /// Input System пакет не знает — его клавишу подаёт хозяин.
+            /// </summary>
+            public bool WasFullMapTogglePressed
+            {
+                get
+                {
+#if ENABLE_LEGACY_INPUT_MANAGER
+                    return Input.GetKeyDown(KeyCode.M);
+#else
+                    return false;
+#endif
+                }
+            }
 
             public string DescribeControl() => "control=standalone";
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using RedoSchool.Features.LevelGeneration.Generation.Application;
@@ -7,6 +8,7 @@ using RedoSchool.Features.LevelGeneration.Generation.Application.DependencyHints
 using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
 using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
 using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.Features.LevelGeneration.Generation.Infrastructure;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
 {
@@ -310,10 +312,10 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
 
             LevelLayout layout = generator.BuildLayout(config, 21);
 
-            // Maze wrong-answer dead-ends are now best-effort + non-fatal: the placer force-places them (so the
-            // contract is honoured) and any leftover topology gap is a WARNING, not a seed-rejecting error. So the
-            // generator no longer retries when the first layout's wrong answers are not dead-ends — it accepts the
-            // first layout and everything runs exactly once on seed 21.
+            // Maze wrong-answer dead-ends are best-effort + non-fatal: a cap that does not fit without overlap is not
+            // placed (never force-placed), its door is sealed, and the leftover topology gap is a WARNING, not a
+            // seed-rejecting error. So the generator does not retry when the first layout's wrong answers are not
+            // dead-ends — it accepts the first layout and everything runs exactly once on seed 21.
             Assert.IsNotNull(layout);
             Assert.AreEqual(1, graphBuilder.CallCount);
             Assert.AreEqual(graph.Nodes.Count, roomSelector.CallCount);
@@ -426,6 +428,297 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
             Assert.AreEqual("Q_PASSWORD",
                 (wrappedConfig as IInteractiveMissionContentProvider)?.InteractiveContent[0].ContentId);
             StringAssert.Contains("Q_UNKNOWN", warnings[0]);
+        }
+
+        [Test]
+        public async Task BuildLayout_SameSeedProducesSameLayout_RegardlessOfTimeBudgetAndMultiplier()
+        {
+            // Размещение сида 31 «тратит» 1.1 с по часам прогона (подставные часы — без реального сна). Раньше лимит
+            // стадии размещения (max(500 мс, 0.4 бюджета)) при бюджете 2 с обрывал его и генератор уходил на сид 32, а
+            // при множителе ×10 тот же сид успевал. Теперь часы только прерывают прогон — исход сида одинаков в
+            // синхронном и кооперативном пути при любом бюджете и множителе.
+            const int seed = 31;
+            (int successfulSeed, string fingerprint) syncTight = await BuildWithVirtualClockAsync(seed, 2, 1f, false);
+            (int successfulSeed, string fingerprint) syncGenerous = await BuildWithVirtualClockAsync(seed, 2, 10f, false);
+            (int successfulSeed, string fingerprint) coopTight = await BuildWithVirtualClockAsync(seed, 2, 1f, true);
+            (int successfulSeed, string fingerprint) coopGenerous = await BuildWithVirtualClockAsync(seed, 30, 1f, true);
+
+            Assert.AreEqual(seed, syncTight.successfulSeed,
+                "A slow but valid seed must not be skipped because of a placement stage time cap.");
+            Assert.AreEqual(seed, syncGenerous.successfulSeed);
+            Assert.AreEqual(seed, coopTight.successfulSeed);
+            Assert.AreEqual(seed, coopGenerous.successfulSeed);
+            Assert.AreEqual(syncTight.fingerprint, syncGenerous.fingerprint);
+            Assert.AreEqual(syncTight.fingerprint, coopTight.fingerprint);
+            Assert.AreEqual(syncTight.fingerprint, coopGenerous.fingerprint);
+        }
+
+        [Test]
+        public async Task BuildLayout_RunOverItsTimeBudget_AbortsWithTimeout_InsteadOfSwitchingSeed()
+        {
+            // Тот же сид при бюджете 1 с: часы прогона только прерывают его TimeoutException — ни синхронный, ни
+            // кооперативный путь не подменяет раскладку раскладкой другого сида.
+            // Тест асинхронный, а не Assert.ThrowsAsync: тот синхронно ждёт задачу на главном потоке, а кооперативный
+            // путь продолжается после Task.Yield в контексте Unity на том же потоке — прогон Unity висел навсегда.
+            const int seed = 31;
+            foreach (bool cooperative in new[] { false, true })
+            {
+                TimeoutException timeout = null;
+                try
+                {
+                    await BuildWithVirtualClockAsync(seed, 1, 1f, cooperative);
+                }
+                catch (TimeoutException exception)
+                {
+                    timeout = exception;
+                }
+
+                Assert.IsNotNull(timeout,
+                    $"The {(cooperative ? "cooperative" : "synchronous")} path must abort with TimeoutException.");
+            }
+        }
+
+        [Test]
+        public void BuildLayout_WrongAnswerCapThatDoesNotFit_IsSealedWithWarning_NeverOverlapped()
+        {
+            LevelGraph graph = SocketBacktrackingRoomPlacerTests.DenseMazeGraph();
+            Dictionary<string, IRoomTemplateDescriptor> selections =
+                SocketBacktrackingRoomPlacerTests.UnfittableCapMazeSelections();
+            FakeRoomDatabase roomDatabase = new(selections.Values.ToList());
+            MissionGenerator generator = new(
+                new SystemRandomRngFactory(),
+                new StaticGraphBuilder(graph),
+                new StaticRoomSelector(selections),
+                new SocketBacktrackingRoomPlacer(TestInteractiveRoomKinds.Standard),
+                new DoorConnector(),
+                new LevelValidator(roomDatabase),
+                roomDatabase,
+                new FakeTilesetCatalog(),
+                TestInteractiveRoomKinds.Standard);
+
+            LevelLayout layout = generator.BuildLayout(new FakeMissionConfig(), 7);
+
+            Assert.IsFalse(layout.Rooms.Any(room => room.NodeId == "n_wrong_1"),
+                "A cap that only fits with overlap must not be placed at all.");
+            Assert.IsTrue(layout.Rooms.Any(room => room.NodeId == "n_wrong_2"));
+            PlacedRoom maze = layout.Rooms.Single(room => room.NodeId == "n_maze");
+            string[] answerDoors = { "correct", "wrong_1", "wrong_2" };
+            string[] sealedDoors = answerDoors.Where(id => maze.DoorStates[id] == DoorState.Disabled).ToArray();
+            Assert.AreEqual(1, sealedDoors.Length, "Exactly the answer door of the missing cap is sealed into a wall.");
+            string warning = generator.LastWarnings.Single(text => text.Contains("'n_wrong_1'"));
+            StringAssert.Contains("'n_maze'", warning);
+            StringAssert.Contains($"'{sealedDoors[0]}' is sealed", warning,
+                "The warning must name the answer door of this particular cap.");
+            foreach (string otherDoor in answerDoors.Where(id => id != sealedDoors[0]))
+            {
+                StringAssert.DoesNotContain($"'{otherDoor}'", warning, "Only this cap's door belongs in its warning.");
+            }
+            LevelValidationResult recheck = new LevelValidator(roomDatabase).Validate(
+                layout,
+                generator.LastGraph,
+                new FakeMissionConfig(),
+                new FakeTileset());
+            Assert.IsFalse(recheck.Issues.Any(issue => issue.Code == "RoomsOverlap"));
+
+            // Предупреждения — состояние экземпляра: другой генератор без лабиринта их не видит.
+            MissionGenerator other = new(
+                new SequenceRngFactory(),
+                new StaticGraphBuilder(TestGraph()),
+                new StaticRoomSelector(StaticSelection()),
+                new StaticRoomPlacer(),
+                new StaticDoorConnector(),
+                new SequenceValidator(LevelValidationResult.Empty),
+                new FakeRoomDatabase(new IRoomTemplateDescriptor[] { new FakeRoomTemplate("interactive_room", RoomKind.Interactive) }),
+                new FakeTilesetCatalog(),
+                TestInteractiveRoomKinds.Standard);
+            other.BuildLayout(new FakeMissionConfig(), 7);
+            Assert.IsFalse(other.LastWarnings.Any(warning => warning.Contains("n_wrong_1")));
+        }
+
+        [Test]
+        public void BuildLayout_DependencyHintNeverPutsKeyBehindItsOwnLock()
+        {
+            // n_before (до замка) и n_after (за замком) оба в одном переходе от замка. Раньше узел выбирался по
+            // неориентированному расстоянию, и при равенстве по ordinal выигрывал n_after — ключ за своей дверью.
+            LevelGraph graph = new(
+                new[] { new RoomNode("n_start", RoomKind.Start), new RoomNode("n_before", RoomKind.Interactive), new RoomNode("n_lock", RoomKind.Interactive), new RoomNode("n_after", RoomKind.Interactive) },
+                new[] { new LevelGraphEdge("n_start", "n_before", true), new LevelGraphEdge("n_before", "n_lock", true), new LevelGraphEdge("n_lock", "n_after", true) });
+            FakeRoomTemplate start = new("start_room", RoomKind.Start);
+            FakeRoomTemplate plain = new("plain_room", RoomKind.Interactive);
+            FakeRoomTemplate lockRoom = new("lock_room", RoomKind.Interactive);
+            FakeRoomTemplate keyRoom = new("key_room", RoomKind.Interactive);
+            StaticRoomSelector roomSelector = new(new Dictionary<string, IRoomTemplateDescriptor> { ["n_start"] = start, ["n_before"] = plain, ["n_lock"] = lockRoom, ["n_after"] = plain });
+            StaticDoorConnector doorConnector = new();
+            MissionGenerator generator = new(
+                new SingleRngFactory(),
+                new StaticGraphBuilder(graph),
+                roomSelector,
+                new StaticRoomPlacer(),
+                doorConnector,
+                new SequenceValidator(LevelValidationResult.Empty),
+                new FakeRoomDatabase(new IRoomTemplateDescriptor[] { start, plain, lockRoom, keyRoom }),
+                new FakeTilesetCatalog(),
+                TestInteractiveRoomKinds.Standard,
+                new IRoomDependencyHintExtractor[] { new HintExtractor(new RoomDependencyHint("key_room", "lock_room", 1, 1)) });
+
+            generator.BuildLayout(new FakeMissionConfig(), 5);
+
+            Assert.AreEqual("key_room", doorConnector.LastSelections["n_before"].RoomId,
+                "The key must be placed where it is reachable from Start without entering its lock room.");
+            Assert.AreEqual("plain_room", doorConnector.LastSelections["n_after"].RoomId,
+                "A node reachable only through the lock must never receive its key.");
+        }
+
+        [Test]
+        public void BuildLayout_RejectsLockWhoseOnlyKeyCandidateIsBehindIt()
+        {
+            // Единственный узел подходящего вида (n_after) — за замком. Раньше ключ ставился туда; теперь узла под
+            // ключ нет, и стадия отклоняется явной ошибкой, а не уходит в игру замком без ключа.
+            LevelGraph graph = new(
+                new[] { new RoomNode("n_start", RoomKind.Start), new RoomNode("n_lock", RoomKind.Interactive), new RoomNode("n_after", RoomKind.Interactive) },
+                new[] { new LevelGraphEdge("n_start", "n_lock", true), new LevelGraphEdge("n_lock", "n_after", true) });
+            FakeRoomTemplate start = new("start_room", RoomKind.Start);
+            FakeRoomTemplate plain = new("plain_room", RoomKind.Interactive);
+            FakeRoomTemplate lockRoom = new("lock_room", RoomKind.Interactive);
+            FakeRoomTemplate keyRoom = new("key_room", RoomKind.Interactive);
+            StaticRoomPlacer roomPlacer = new();
+            MissionGenerator generator = new(
+                new SingleRngFactory(),
+                new StaticGraphBuilder(graph),
+                new StaticRoomSelector(new Dictionary<string, IRoomTemplateDescriptor> { ["n_start"] = start, ["n_lock"] = lockRoom, ["n_after"] = plain }),
+                roomPlacer,
+                new StaticDoorConnector(),
+                new SequenceValidator(LevelValidationResult.Empty),
+                new FakeRoomDatabase(new IRoomTemplateDescriptor[] { start, plain, lockRoom, keyRoom }),
+                new FakeTilesetCatalog(),
+                TestInteractiveRoomKinds.Standard,
+                new IRoomDependencyHintExtractor[] { new HintExtractor(new RoomDependencyHint("key_room", "lock_room", 1, 3)) })
+            {
+                MaxGenerationAttempts = 2
+            };
+
+            InvalidOperationException ex =
+                Assert.Throws<InvalidOperationException>(() => generator.BuildLayout(new FakeMissionConfig(), 5));
+
+            StringAssert.Contains("KeyDependencyUnsatisfied", ex.Message);
+            StringAssert.Contains("'n_lock'", ex.Message);
+            Assert.AreEqual(0, roomPlacer.CallCount, "A lock without a reachable key must be rejected before placement.");
+        }
+
+        [Test]
+        public void BuildLayout_DependencyHintNeverPutsKeyOnWrongAnswerDeadEnd()
+        {
+            // Заглушка неверного ответа (n_cap) ближе к замку, чем n_passage, и раньше получала ключ. Но заглушку могут
+            // убрать из раскладки (не поместилась) — ключ исчез бы вместе с ней. Ключ ставится только на обязательный узел.
+            LevelGraph graph = new(
+                new[] { new RoomNode("n_start", RoomKind.Start), new RoomNode("n_quiz", RoomKind.Interactive), new RoomNode("n_cap", RoomKind.Passage, isOnMainPath: false, isDeadEnd: true), new RoomNode("n_lock", RoomKind.Interactive), new RoomNode("n_passage", RoomKind.Passage) },
+                new[] { new LevelGraphEdge("n_start", "n_quiz", true), new LevelGraphEdge("n_quiz", "n_lock", true), new LevelGraphEdge("n_quiz", "n_cap", false, EdgeBranchRole.MazeWrongDeadEnd), new LevelGraphEdge("n_start", "n_passage", false) });
+            FakeRoomTemplate start = new("start_room", RoomKind.Start);
+            FakeRoomTemplate quiz = new("quiz_room", RoomKind.Interactive);
+            FakeRoomTemplate cap = new("cap_room", RoomKind.Passage);
+            FakeRoomTemplate lockRoom = new("lock_room", RoomKind.Interactive);
+            FakeRoomTemplate passage = new("passage_room", RoomKind.Passage);
+            FakeRoomTemplate keyRoom = new("key_room", RoomKind.Passage);
+            StaticDoorConnector doorConnector = new();
+            MissionGenerator generator = new(
+                new SingleRngFactory(),
+                new StaticGraphBuilder(graph),
+                new StaticRoomSelector(new Dictionary<string, IRoomTemplateDescriptor> { ["n_start"] = start, ["n_quiz"] = quiz, ["n_cap"] = cap, ["n_lock"] = lockRoom, ["n_passage"] = passage }),
+                new StaticRoomPlacer(),
+                doorConnector,
+                new SequenceValidator(LevelValidationResult.Empty),
+                new FakeRoomDatabase(new IRoomTemplateDescriptor[] { start, quiz, cap, lockRoom, passage, keyRoom }),
+                new FakeTilesetCatalog(),
+                TestInteractiveRoomKinds.Standard,
+                new IRoomDependencyHintExtractor[] { new HintExtractor(new RoomDependencyHint("key_room", "lock_room", 1, 3)) });
+
+            generator.BuildLayout(new FakeMissionConfig(), 5);
+
+            Assert.AreEqual("key_room", doorConnector.LastSelections["n_passage"].RoomId,
+                "The key belongs on a mandatory node reachable before the lock.");
+            Assert.AreEqual("cap_room", doorConnector.LastSelections["n_cap"].RoomId,
+                "A wrong-answer dead-end can be pruned from the layout and must never carry the key.");
+        }
+
+        [Test]
+        public void BuildLayout_RejectsDuplicateConnectableSocketIdsBeforePlacement()
+        {
+            FakeRoomTemplate duplicate = new(
+                "dup_room",
+                RoomKind.Interactive,
+                doors: new IDoorSocketDescriptor[] { new FakeDoorSocket("door", direction: DoorDirection.East), new FakeDoorSocket("door", direction: DoorDirection.West) });
+            StaticRoomPlacer roomPlacer = new();
+            MissionGenerator generator = new(
+                new SequenceRngFactory(),
+                new StaticGraphBuilder(TestGraph()),
+                new StaticRoomSelector(new Dictionary<string, IRoomTemplateDescriptor> { ["n_start"] = duplicate, ["n_objective"] = duplicate }),
+                roomPlacer,
+                new StaticDoorConnector(),
+                new SequenceValidator(LevelValidationResult.Empty),
+                new FakeRoomDatabase(new IRoomTemplateDescriptor[] { duplicate }),
+                new FakeTilesetCatalog(),
+                TestInteractiveRoomKinds.Standard)
+            {
+                MaxGenerationAttempts = 2
+            };
+
+            InvalidOperationException ex =
+                Assert.Throws<InvalidOperationException>(() => generator.BuildLayout(new FakeMissionConfig(), 3));
+
+            StringAssert.Contains(DoorSocketIdRules.DuplicateIssueCode, ex.Message);
+            StringAssert.Contains("'dup_room'", ex.Message);
+            StringAssert.Contains("'door'", ex.Message);
+            Assert.AreEqual(0, roomPlacer.CallCount, "A template whose doors would share one state must not be placed.");
+        }
+
+        [Test]
+        public void BuildLayout_WarnsWhenDoorConnectorConnectsIncidentalContactsOutsideGraph()
+        {
+            MissionGenerator generator = new(
+                new SequenceRngFactory(),
+                new StaticGraphBuilder(TestGraph()),
+                new StaticRoomSelector(StaticSelection()),
+                new StaticRoomPlacer(),
+                new DoorConnector(true),
+                new SequenceValidator(LevelValidationResult.Empty),
+                new FakeRoomDatabase(new IRoomTemplateDescriptor[] { new FakeRoomTemplate("interactive_room", RoomKind.Interactive) }),
+                new FakeTilesetCatalog(),
+                TestInteractiveRoomKinds.Standard);
+
+            generator.BuildLayout(new FakeMissionConfig(), 4);
+
+            Assert.IsTrue(
+                generator.LastWarnings.Any(warning => warning.Contains("IncidentalDoorContactMode.Seal")),
+                "Connecting incidental door contacts outside the graph only burns seeds; the generator must say so.");
+        }
+
+        private static async Task<(int successfulSeed, string fingerprint)> BuildWithVirtualClockAsync(
+            int seed,
+            int timeoutSeconds,
+            float multiplier,
+            bool cooperative)
+        {
+            ManualGenerationClock clock = new();
+            MissionGenerator generator = new(
+                new SeedTaggingRngFactory(),
+                new StaticGraphBuilder(TestGraph()),
+                new StaticRoomSelector(StaticSelection()),
+                new SlowSeedRoomPlacer(seed, TimeSpan.FromMilliseconds(1100), clock),
+                new StaticDoorConnector(),
+                new SequenceValidator(LevelValidationResult.Empty),
+                new FakeRoomDatabase(new IRoomTemplateDescriptor[] { new FakeRoomTemplate("interactive_room", RoomKind.Interactive) }),
+                new FakeTilesetCatalog(),
+                TestInteractiveRoomKinds.Standard)
+            {
+                GenerationTimeout = TimeSpan.FromSeconds(timeoutSeconds),
+                GenerationTimeBudgetMultiplier = multiplier,
+                GenerationClockFactory = clock.Restart
+            };
+
+            LevelLayout layout = cooperative
+                ? await generator.BuildLayoutCooperativeAsync(new FakeMissionConfig(), seed)
+                : generator.BuildLayout(new FakeMissionConfig(), seed);
+            return (generator.LastSuccessfulSeed, SocketBacktrackingRoomPlacerTests.Fingerprint(layout));
         }
 
         private static LevelLayout BuildLayoutFromSelections(
@@ -814,6 +1107,90 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
             public int OptionCount { get; }
             public int CorrectAnswerCount { get; }
             public bool IsMandatory { get; }
+        }
+
+        private sealed class SeedTaggedRng : IDeterministicRng
+        {
+            private readonly SystemRandomRng _inner;
+
+            public SeedTaggedRng(int seed)
+            {
+                Seed = seed;
+                _inner = new SystemRandomRng(seed);
+            }
+
+            public int Seed { get; }
+
+            public int NextInt(int minInclusive, int maxExclusive) => _inner.NextInt(minInclusive, maxExclusive);
+
+            public float NextFloat() => _inner.NextFloat();
+
+            public void Shuffle<T>(IList<T> list) => _inner.Shuffle(list);
+        }
+
+        private sealed class SeedTaggingRngFactory : IDeterministicRngFactory
+        {
+            public IDeterministicRng Create(int seed) => new SeedTaggedRng(seed);
+        }
+
+        // Часы прогона, которыми управляет тест: время идёт только когда его «тратит» подставное размещение.
+        private sealed class ManualGenerationClock : IGenerationClock
+        {
+            public TimeSpan Elapsed { get; private set; }
+
+            public IGenerationClock Restart()
+            {
+                Elapsed = TimeSpan.Zero;
+                return this;
+            }
+
+            public void Advance(TimeSpan duration) => Elapsed += duration;
+        }
+
+        // Размещение, которое для одного сида «работает» заметно долго по часам прогона (без реального сна), а позы
+        // комнат берёт из ГСЧ сида — по отпечатку видно, какой сид дал раскладку.
+        private sealed class SlowSeedRoomPlacer : IRoomPlacer
+        {
+            private readonly int _slowSeed;
+            private readonly TimeSpan _slowDuration;
+            private readonly ManualGenerationClock _clock;
+
+            public SlowSeedRoomPlacer(int slowSeed, TimeSpan slowDuration, ManualGenerationClock clock)
+            {
+                _slowSeed = slowSeed;
+                _slowDuration = slowDuration;
+                _clock = clock;
+            }
+
+            public LevelLayout Place(
+                LevelGraph graph,
+                IReadOnlyDictionary<string, IRoomTemplateDescriptor> selections,
+                IDeterministicRng rng,
+                System.Threading.CancellationToken ct = default)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (rng is SeedTaggedRng tagged && tagged.Seed == _slowSeed)
+                {
+                    _clock.Advance(_slowDuration);
+                }
+
+                PlacedRoom[] rooms = new PlacedRoom[graph.Nodes.Count];
+                for (int i = 0; i < graph.Nodes.Count; i++)
+                {
+                    RoomNode node = graph.Nodes[i];
+                    rooms[i] = new PlacedRoom(
+                        node.NodeId,
+                        selections[node.NodeId].RoomId,
+                        new GridPose(rng.NextInt(0, 1000), rng.NextInt(0, 1000), 0),
+                        new Dictionary<string, DoorState>());
+                }
+
+                return new LevelLayout(
+                    rooms,
+                    new[] { new DoorConnection("n_start", "east", "n_objective", "west") },
+                    "n_start",
+                    new[] { "n_objective" });
+            }
         }
     }
 }

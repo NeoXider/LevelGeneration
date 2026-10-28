@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using RedoSchool.Features.LevelGeneration.Generation.Application;
+using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
 using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
 using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
 #if UNITY_EDITOR
@@ -99,6 +100,14 @@ namespace RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime
             for (int i = 0; i < doors.Count; i++)
             {
                 ValidateDoor(room.transform, doors[i], footprintMin, footprintMax, gridOrigin, issues);
+            }
+
+            // Состояние двери адресуется по SocketId: две двери с одним id молча делят одно состояние. Проверяем
+            // те же дескрипторы дверей, что видит генерация (RoomTemplate.DoorsView).
+            if (DoorSocketIdRules.TryFindDuplicateConnectableSocketId(room.DoorsView, out string duplicateSocketId))
+            {
+                issues.Add(DoorSocketIdRules.DescribeDuplicate(((IRoomTemplateDescriptor)room).RoomId,
+                    duplicateSocketId));
             }
 
             return issues;

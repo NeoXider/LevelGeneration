@@ -307,33 +307,56 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             }
         }
 
+        /// <summary>
+        /// Кэш геометрии лежит в мировой ориентации и не зависит от позы игрока: прежде его ключ включал позицию
+        /// (до сантиметра) и взгляд, и на ходу он перестраивался каждый кадр — обе карты.
+        /// </summary>
         [Test]
         public void Controller_StaticMapCache_RebuildsOnlyAfterMapStateChange()
         {
             GameObject go = new("MinimapControllerTest");
+            GameObject playerGo = new("MinimapCachePlayer");
+            GameObject cameraGo = new("MinimapCacheLook");
             SimpleRoomEventBus bus = new();
             try
             {
+                cameraGo.transform.SetParent(playerGo.transform, false);
+                cameraGo.AddComponent<Camera>();
                 LevelMinimapController controller = go.AddComponent<LevelMinimapController>();
+                controller.PlayerTransform = playerGo.transform;
                 controller.Bind(CreateLayout(), bus);
+                Rect compact = new(0f, 0f, 220f, 160f);
+                Rect full = new(0f, 0f, 900f, 520f);
 
-                Assert.IsTrue(WarmStaticMapCache(controller, new Rect(0f, 0f, 220f, 160f), false));
-                Assert.AreEqual(1, controller.StaticMapRebuildCount);
+                Assert.IsTrue(controller.WarmStaticMapCacheForTests(compact, false));
+                Assert.IsTrue(controller.WarmStaticMapCacheForTests(full, true));
+                Assert.AreEqual(2, controller.StaticMapRebuildCount, "One build per map.");
 
-                Assert.IsTrue(WarmStaticMapCache(controller, new Rect(0f, 0f, 220f, 160f), false));
-                Assert.AreEqual(1, controller.StaticMapRebuildCount);
+                for (int frame = 1; frame <= 20; frame++)
+                {
+                    playerGo.transform.position = new Vector3(0.05f * frame, 0f, 0.5f + 0.01f * frame);
+                    cameraGo.transform.localRotation = Quaternion.Euler(0f, 9f * frame, 0f);
+                    Assert.IsTrue(controller.WarmStaticMapCacheForTests(compact, false));
+                    Assert.IsTrue(controller.WarmStaticMapCacheForTests(full, true));
+                }
+
+                Assert.AreEqual(2, controller.StaticMapRebuildCount,
+                    "Walking and turning do not rebuild the geometry cache of either map.");
 
                 bus.Publish(new RoomEnteredEvent("n_objective", RoomKind.Interactive));
 
-                Assert.IsTrue(WarmStaticMapCache(controller, new Rect(0f, 0f, 220f, 160f), false));
-                Assert.AreEqual(2, controller.StaticMapRebuildCount);
+                Assert.IsTrue(controller.WarmStaticMapCacheForTests(compact, false));
+                Assert.IsTrue(controller.WarmStaticMapCacheForTests(full, true));
+                Assert.AreEqual(4, controller.StaticMapRebuildCount, "A revealed room rebuilds each map once.");
 
-                Assert.IsTrue(WarmStaticMapCache(controller, new Rect(0f, 0f, 220f, 160f), false));
-                Assert.AreEqual(2, controller.StaticMapRebuildCount);
+                Assert.IsTrue(controller.WarmStaticMapCacheForTests(compact, false));
+                Assert.IsTrue(controller.WarmStaticMapCacheForTests(full, true));
+                Assert.AreEqual(4, controller.StaticMapRebuildCount);
             }
             finally
             {
                 Object.DestroyImmediate(go);
+                Object.DestroyImmediate(playerGo);
             }
         }
 
@@ -495,6 +518,38 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             Assert.AreEqual("n_objective", session.FindRoomBehindDoor("n_start", "east"));
             Assert.AreEqual("n_start", session.FindRoomBehindDoor("n_objective", "west"));
             Assert.IsNull(session.FindRoomBehindDoor("n_start", "north"));
+        }
+
+        /// <summary>
+        /// Живая дверь связи одна (From-комнаты), и открывают её с обеих сторон: ученик в To-комнате, открывший
+        /// её, обязан увидеть комнату-владельца двери, а не «раскрыть» ту, где стоит.
+        /// </summary>
+        [Test]
+        public void ScheduleRevealAcrossDoor_OpenedFromTheToSide_RevealsTheDoorOwner()
+        {
+            LevelMinimapSession session = new();
+            session.Bind(CreateLayout());
+            session.RevealRoom("n_exit");
+            Assume.That(!session.IsRoomRevealed("n_objective"));
+
+            int scheduled = session.ScheduleRevealAcrossDoor("n_objective", "east", 2f);
+
+            Assert.AreEqual(1, scheduled, "Only the dark side is scheduled; the student's own room is already shown.");
+            Assert.IsTrue(session.IsRevealPending("n_objective"));
+            Assert.AreEqual(1, session.RevealDueRooms(2f));
+            Assert.IsTrue(session.IsRoomRevealed("n_objective"));
+            Assert.AreEqual("n_exit", session.CurrentRoomId, "Opening a door is not entering.");
+        }
+
+        [Test]
+        public void ScheduleRevealAcrossDoor_OpenedFromTheFromSide_RevealsTheRoomBehind_AndIgnoresUnknownDoors()
+        {
+            LevelMinimapSession session = new();
+            session.Bind(CreateLayout());
+
+            Assert.AreEqual(1, session.ScheduleRevealAcrossDoor("n_start", "east", 2f));
+            Assert.IsTrue(session.IsRevealPending("n_objective"));
+            Assert.AreEqual(0, session.ScheduleRevealAcrossDoor("n_start", "north", 2f));
         }
 
         [Test]
@@ -784,7 +839,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
                 LevelMinimapController controller = controllerGo.AddComponent<LevelMinimapController>();
                 SetPlayerTransform(controller, playerGo.transform);
 
-                Assert.AreEqual(12000, InvokeBuildProjectionPoseKeyYaw(controller));
+                Assert.AreEqual(120f, controller.ResolveLookYaw(), 0.01f);
             }
             finally
             {
@@ -840,7 +895,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
                 SetPlayerTransform(controller, playerGo.transform);
                 SetRotateWithPlayer(controller, false);
 
-                Assert.AreEqual(0, InvokeBuildProjectionPoseKeyYaw(controller));
+                Assert.AreEqual(0f, controller.ResolveLookYaw());
             }
             finally
             {
@@ -953,18 +1008,6 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
                 BindingFlags.NonPublic | BindingFlags.Instance);
             Assert.NotNull(field);
             field.SetValue(controller, enabled);
-        }
-
-        private static int InvokeBuildProjectionPoseKeyYaw(LevelMinimapController controller)
-        {
-            MethodInfo method = typeof(LevelMinimapController).GetMethod("BuildProjectionPoseKey",
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            Assert.NotNull(method);
-            object poseKey = method.Invoke(controller, null);
-            FieldInfo field = poseKey.GetType().GetField("_yawCentidegrees",
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            Assert.NotNull(field);
-            return (int)field.GetValue(poseKey);
         }
 
         private static float InvokeTryBuildProjectionScale(

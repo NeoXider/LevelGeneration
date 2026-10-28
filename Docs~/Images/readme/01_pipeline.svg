@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600" role="img" aria-labelledby="t d"><title id="t">How Neoxider LevelGeneration builds a level</title><desc id="d">Mission config, room catalog and seed go through graph planning, room selection, socket placement with backtracking, a dead-end pass and validation; the resulting LevelLayout is spawned by the game and drives the minimap and the route hint.</desc><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1020"/><stop offset="1" stop-color="#131a33"/></linearGradient><linearGradient id="gGreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8cff7a"/><stop offset="1" stop-color="#2fbf4a"/></linearGradient><linearGradient id="gCyan" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7defff"/><stop offset="1" stop-color="#1b9fc0"/></linearGradient><linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c3a8ff"/><stop offset="1" stop-color="#6c4be0"/></linearGradient><linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc27a"/><stop offset="1" stop-color="#e8661e"/></linearGradient><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#38d6e8" stop-opacity="0.35"/><stop offset="1" stop-color="#38d6e8" stop-opacity="0"/></radialGradient><radialGradient id="haloP" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#a07bff" stop-opacity="0.30"/><stop offset="1" stop-color="#a07bff" stop-opacity="0"/></radialGradient><pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32,0 L0,0 L0,32" fill="none" stroke="#1c2547" stroke-width="1"/></pattern><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9aa6cf"/></marker><marker id="arrG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5ee05a"/></marker><marker id="arrC" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#38d6e8"/></marker><marker id="arrO" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ff9548"/></marker><marker id="arrP" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a07bff"/></marker><marker id="arrR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ff6fa8"/></marker><filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="softglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect x="0" y="0" width="1280" height="600" rx="18" fill="url(#bg)"/>
+<rect x="0.75" y="0.75" width="1278.5" height="598.5" rx="17.5" fill="none" stroke="#2c3868" stroke-width="1.5"/>
+<text x="40" y="48" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="26" font-weight="700" fill="#eef2ff" text-anchor="start">How a level is built</text>
+<text x="1240" y="48" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="14" font-weight="400" fill="#9aa6cf" text-anchor="end">MissionGenerator.BuildLayout(config, seed)  ·  BuildLayoutAsync</text>
+<text x="40" y="84" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="13" font-weight="800" fill="#5ee05a" text-anchor="start">GENERATION  ·  pure C# assemblies (noEngineReferences)  ·  deterministic for a seed</text>
+<rect x="40" y="100" width="170" height="230" rx="14" fill="#171f3b" stroke="#5ee05a" stroke-width="1.5"/>
+<text x="60" y="130" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#eef2ff" text-anchor="start">Inputs</text>
+<text x="60" y="160" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="13" font-weight="600" fill="#eef2ff" text-anchor="start">Mission config</text>
+<text x="60" y="178" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="400" fill="#38d6e8" text-anchor="start">IMissionConfigView</text>
+<text x="60" y="208" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="13" font-weight="600" fill="#eef2ff" text-anchor="start">Room catalog</text>
+<text x="60" y="226" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="400" fill="#38d6e8" text-anchor="start">TilesetSO</text>
+<text x="60" y="243" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="400" fill="#38d6e8" text-anchor="start">RoomDatabase</text>
+<text x="60" y="273" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="13" font-weight="600" fill="#eef2ff" text-anchor="start">Seed</text>
+<text x="60" y="291" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="start">+ cancellation token</text>
+<line x1="211" y1="215.0" x2="226" y2="215.0" stroke="#9aa6cf" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arr)"/>
+<rect x="228" y="100" width="158" height="230" rx="14" fill="#171f3b" stroke="#a07bff" stroke-width="1.5"/>
+<circle cx="250" cy="122" r="13" fill="#a07bff"/>
+<text x="250" y="127" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#0b1020" text-anchor="middle">1</text>
+<text x="307.0" y="158" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="middle">Graph planning</text>
+<text x="307.0" y="185" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">pacing plan: main path</text>
+<text x="307.0" y="202" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">with required content,</text>
+<text x="307.0" y="219" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">quiz answer branches,</text>
+<text x="307.0" y="236" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">side branches and</text>
+<text x="307.0" y="253" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">dead ends</text>
+<rect x="262.5" y="292" width="89.0" height="24" rx="12" fill="#1d2750" stroke="#a07bff" stroke-width="1.2"/>
+<text x="307.0" y="308.5" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="600" fill="#eef2ff" text-anchor="middle">LevelGraph</text>
+<line x1="387" y1="215.0" x2="397" y2="215.0" stroke="#9aa6cf" stroke-width="2" stroke-linecap="round" marker-end="url(#arr)"/>
+<rect x="398" y="100" width="158" height="230" rx="14" fill="#171f3b" stroke="#38d6e8" stroke-width="1.5"/>
+<circle cx="420" cy="122" r="13" fill="#38d6e8"/>
+<text x="420" y="127" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#0b1020" text-anchor="middle">2</text>
+<text x="477.0" y="158" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="middle">Room selection</text>
+<text x="477.0" y="185" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">a room template per</text>
+<text x="477.0" y="202" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">node by kind, tileset,</text>
+<text x="477.0" y="219" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">footprint and weight;</text>
+<text x="477.0" y="236" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">interactive rooms via</text>
+<text x="477.0" y="253" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">rules you supply</text>
+<rect x="415.25" y="292" width="123.49999999999999" height="24" rx="12" fill="#1d2750" stroke="#38d6e8" stroke-width="1.2"/>
+<text x="477.0" y="308.5" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="600" fill="#eef2ff" text-anchor="middle">node → template</text>
+<line x1="557" y1="215.0" x2="567" y2="215.0" stroke="#9aa6cf" stroke-width="2" stroke-linecap="round" marker-end="url(#arr)"/>
+<rect x="568" y="100" width="158" height="230" rx="14" fill="#171f3b" stroke="#5ee05a" stroke-width="1.5"/>
+<circle cx="590" cy="122" r="13" fill="#5ee05a"/>
+<text x="590" y="127" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#0b1020" text-anchor="middle">3</text>
+<text x="647.0" y="158" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="middle">Socket</text>
+<text x="647.0" y="177" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="middle">placement</text>
+<text x="647.0" y="204" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">rooms docked door</text>
+<text x="647.0" y="221" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">socket to socket; an</text>
+<text x="647.0" y="238" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">overlap backtracks to</text>
+<text x="647.0" y="255" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">the next candidate;</text>
+<text x="647.0" y="272" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">doors are connected</text>
+<line x1="727" y1="215.0" x2="737" y2="215.0" stroke="#9aa6cf" stroke-width="2" stroke-linecap="round" marker-end="url(#arr)"/>
+<rect x="738" y="100" width="158" height="230" rx="14" fill="#171f3b" stroke="#ffd34e" stroke-width="1.5"/>
+<circle cx="760" cy="122" r="13" fill="#ffd34e"/>
+<text x="760" y="127" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#0b1020" text-anchor="middle">4</text>
+<text x="817.0" y="158" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="middle">Dead-end pass</text>
+<text x="817.0" y="185" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">free doors get real</text>
+<text x="817.0" y="202" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">one-door dead-end</text>
+<text x="817.0" y="219" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">rooms; a door with no</text>
+<text x="817.0" y="236" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">fitting room is sealed</text>
+<rect x="769.05" y="292" width="95.89999999999999" height="24" rx="12" fill="#1d2750" stroke="#ffd34e" stroke-width="1.2"/>
+<text x="817.0" y="308.5" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="600" fill="#eef2ff" text-anchor="middle">best effort</text>
+<line x1="897" y1="215.0" x2="907" y2="215.0" stroke="#9aa6cf" stroke-width="2" stroke-linecap="round" marker-end="url(#arr)"/>
+<rect x="908" y="100" width="158" height="230" rx="14" fill="#171f3b" stroke="#ff9548" stroke-width="1.5"/>
+<circle cx="930" cy="122" r="13" fill="#ff9548"/>
+<text x="930" y="127" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="14" font-weight="800" fill="#0b1020" text-anchor="middle">5</text>
+<text x="987.0" y="158" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="middle">Validation</text>
+<text x="987.0" y="185" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">start and exit placed,</text>
+<text x="987.0" y="202" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">every room reachable,</text>
+<text x="987.0" y="219" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">dependency hints;</text>
+<text x="987.0" y="236" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">a rejected attempt</text>
+<text x="987.0" y="253" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="middle">retries the next seed</text>
+<line x1="1067" y1="215.0" x2="1082" y2="215.0" stroke="#9aa6cf" stroke-width="2.5" stroke-linecap="round" marker-end="url(#arr)"/>
+<ellipse cx="1162.0" cy="215.0" rx="120" ry="150" fill="url(#halo)"/>
+<rect x="1084" y="100" width="156" height="230" rx="14" fill="#121a38" stroke="#38d6e8" stroke-width="2"/>
+<text x="1102" y="130" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="16" font-weight="800" fill="#38d6e8" text-anchor="start">LevelLayout</text>
+<text x="1102" y="160" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="400" fill="#eef2ff" text-anchor="start">PlacedRoom[]</text>
+<text x="1102" y="178" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="start">template + pose</text>
+<text x="1102" y="204" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="400" fill="#eef2ff" text-anchor="start">DoorConnection[]</text>
+<text x="1102" y="222" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12" font-weight="400" fill="#9aa6cf" text-anchor="start">IsMainPath flag</text>
+<text x="1102" y="248" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="400" fill="#eef2ff" text-anchor="start">StartNodeId</text>
+<text x="1102" y="266" font-family="Cascadia Code, Consolas, Menlo, monospace" font-size="11.5" font-weight="400" fill="#eef2ff" text-anchor="start">ExitNodeIds</text>
+<path d="M987.0,332 L987.0,352 L307.0,352 L307.0,334" stroke="#ff9548" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 6" marker-end="url(#arrO)"/>
+<text x="647.0" y="376" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="13" font-weight="400" fill="#ff9548" text-anchor="middle">rejected attempt → retry with seed + 1  ·  48 attempts by default inside a time budget, then a clear exception</text>
+<path d="M1162.0,332 L1162.0,404 L233.0,404" stroke="#38d6e8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="233.0" y1="404" x2="233.0" y2="430" stroke="#38d6e8" stroke-width="2.2" stroke-linecap="round" marker-end="url(#arrC)"/>
+<line x1="640.0" y1="404" x2="640.0" y2="430" stroke="#38d6e8" stroke-width="2.2" stroke-linecap="round" marker-end="url(#arrC)"/>
+<line x1="1047.0" y1="404" x2="1047.0" y2="430" stroke="#38d6e8" stroke-width="2.2" stroke-linecap="round" marker-end="url(#arrC)"/>
+<text x="40" y="420" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="13" font-weight="800" fill="#ff9548" text-anchor="start">AT RUNTIME</text>
+<rect x="40" y="432" width="386" height="128" rx="14" fill="#171f3b" stroke="#2c3868" stroke-width="1.5"/>
+<rect x="40" y="446" width="5" height="100" rx="2.5" fill="#5ee05a"/>
+<text x="62" y="464" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="start">Spawn  —  your game</text>
+<text x="62" y="490" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9aa6cf" text-anchor="start">Your spawner instantiates each placed room's</text>
+<text x="62" y="510" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9aa6cf" text-anchor="start">prefab at its pose; the package does not spawn.</text>
+<text x="62" y="530" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start" xml:space="preserve"><tspan fill="#eef2ff" font-weight="400" font-family="Cascadia Code, Consolas, Menlo, monospace">RoomEnterDetector</tspan><tspan fill="#9aa6cf" font-weight="400"> raises </tspan><tspan fill="#eef2ff" font-weight="400" font-family="Cascadia Code, Consolas, Menlo, monospace">RoomEnteredEvent</tspan></text>
+<rect x="447" y="432" width="386" height="128" rx="14" fill="#171f3b" stroke="#2c3868" stroke-width="1.5"/>
+<rect x="447" y="446" width="5" height="100" rx="2.5" fill="#38d6e8"/>
+<text x="469" y="464" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="start">Minimap</text>
+<text x="469" y="490" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" text-anchor="start" xml:space="preserve"><tspan fill="#eef2ff" font-weight="400" font-family="Cascadia Code, Consolas, Menlo, monospace">LevelMinimapController.Bind(layout, bus, …)</tspan></text>
+<text x="469" y="510" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9aa6cf" text-anchor="start">Corner map + full map on M; it shows only rooms</text>
+<text x="469" y="530" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9aa6cf" text-anchor="start">the player entered or opened a door into.</text>
+<rect x="854" y="432" width="386" height="128" rx="14" fill="#171f3b" stroke="#2c3868" stroke-width="1.5"/>
+<rect x="854" y="446" width="5" height="100" rx="2.5" fill="#a07bff"/>
+<text x="876" y="464" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="15" font-weight="700" fill="#eef2ff" text-anchor="start">Route hint</text>
+<text x="876" y="490" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9aa6cf" text-anchor="start">After 60 s without progress: a line from the</text>
+<text x="876" y="510" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9aa6cf" text-anchor="start">player to the next critical-path door on both</text>
+<text x="876" y="530" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#9aa6cf" text-anchor="start">maps, plus an optional sparkle trail on the floor.</text>
+</svg>

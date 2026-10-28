@@ -37,6 +37,9 @@ namespace RedoSchool.Features.LevelGeneration.Runtime.Infrastructure
         public void Bind(LevelLayout layout, IReadOnlyDictionary<string, RoomInstance> rooms, IRoomEventBus bus)
         {
             DisposeSubscription();
+            // Посещённые комнаты — состояние ОДНОЙ миссии. Без сброса новая миссия с теми же идентификаторами
+            // узлов держала бы включёнными комнаты, в которых ученик был в прошлой.
+            _visitedRoomIds.Clear();
             _rooms = rooms;
             _currentNodeId = layout != null ? layout.StartNodeId : null;
             BuildAdjacency(layout);
