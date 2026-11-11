@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
 {

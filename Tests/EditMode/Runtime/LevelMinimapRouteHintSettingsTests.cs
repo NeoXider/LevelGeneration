@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
-using RedoSchool.Features.LevelGeneration.Runtime.Presentation;
+using RedoSchool.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;

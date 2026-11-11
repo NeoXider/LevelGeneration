@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     public static class RouteHintDiagnosticsUseCase
     {

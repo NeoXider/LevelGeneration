@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Models
+namespace RedoSchool.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Logical placement of a room in the level layout. Holds the chosen room template id and

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>Исход решения о подсказке маршрута.</summary>
     public enum RouteHintOutcome

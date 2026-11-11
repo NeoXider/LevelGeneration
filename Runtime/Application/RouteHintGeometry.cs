@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Плоская (XZ) геометрия уровня для подсказки маршрута: пол каждой комнаты в виде ячеек сетки и

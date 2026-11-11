@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
+namespace RedoSchool.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Golden stars following the floor-probed shared trail. No ribbon or floor overlay. The view owns only

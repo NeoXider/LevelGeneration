@@ -1,7 +1,7 @@
 using System.Reflection;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.Features.LevelGeneration.Runtime.Presentation;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Runtime.Presentation;
 using UnityEngine;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime

@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
-using RedoSchool.Features.LevelGeneration.Runtime.Infrastructure;
+using RedoSchool.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Infrastructure;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
+namespace RedoSchool.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Путь подсказки маршрута на полу (план b333 §2b). Контроллер только подаёт входы: нужна ли подсказка

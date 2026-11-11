@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
-using RedoSchool.Features.LevelGeneration.Runtime.Infrastructure;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Infrastructure;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
+namespace RedoSchool.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Раскрытие комнат (вход и открытая дверь) и подсказка маршрута. Решения здесь не принимаются: когда

@@ -1,7 +1,7 @@
 using System;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Policies
+namespace RedoSchool.LevelGeneration.Generation.Application.V2.Policies
 {
     public sealed class LayoutRetryPlanner
     {

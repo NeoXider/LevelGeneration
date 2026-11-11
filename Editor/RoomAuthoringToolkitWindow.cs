@@ -4,16 +4,16 @@ using System.Globalization;
 using System.IO;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.Features.LevelGeneration.Generation.Infrastructure;
-using RedoSchool.Features.LevelGeneration.Generation.Infrastructure.Data;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Infrastructure;
+using RedoSchool.LevelGeneration.Generation.Infrastructure.Data;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEditor;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Editor
+namespace RedoSchool.LevelGeneration.Editor
 {
     public sealed class RoomAuthoringToolkitWindow : EditorWindow
     {

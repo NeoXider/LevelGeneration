@@ -1,6 +1,6 @@
 ﻿{
   "name": "RedoSchool.LevelGeneration.Editor",
-  "rootNamespace": "RedoSchool.Features.LevelGeneration.Editor",
+  "rootNamespace": "RedoSchool.LevelGeneration.Editor",
   "references": [
     "RedoSchool.LevelGeneration",
     "RedoSchool.LevelGeneration.Domain",

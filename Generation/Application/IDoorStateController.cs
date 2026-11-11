@@ -1,6 +1,6 @@
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application
+namespace RedoSchool.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Runtime door-state mutator. Application/Rooms modules call this to open/lock a door without

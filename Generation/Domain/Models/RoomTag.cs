@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Models
+namespace RedoSchool.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Designer-supplied tag attached to a room template (e.g. "history", "supports_collectibles").

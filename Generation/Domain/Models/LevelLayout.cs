@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Models
+namespace RedoSchool.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Final logical layout of one mission: every <see cref="PlacedRoom"/> with its pose and door states,

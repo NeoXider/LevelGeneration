@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime
+namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
 {
     /// <summary>
     /// Scene marker for a position where collectibles / key items can appear.

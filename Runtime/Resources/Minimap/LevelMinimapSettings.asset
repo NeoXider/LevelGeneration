@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7b4056a3a790b3441a47224abac604bb, type: 3}
   m_Name: LevelMinimapSettings
-  m_EditorClassIdentifier: RedoSchool.LevelGeneration.Runtime::RedoSchool.Features.LevelGeneration.Runtime.Presentation.LevelMinimapSettings
+  m_EditorClassIdentifier: RedoSchool.LevelGeneration.Runtime::RedoSchool.LevelGeneration.Runtime.Presentation.LevelMinimapSettings
   roomRevealDelaySeconds: 1
   roomRevealAnimationSeconds: 0.6
   routeHintEnabled: 1

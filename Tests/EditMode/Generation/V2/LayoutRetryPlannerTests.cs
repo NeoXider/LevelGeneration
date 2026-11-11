@@ -1,6 +1,6 @@
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Policies;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Policies;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
 {

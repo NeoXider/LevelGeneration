@@ -1,6 +1,6 @@
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.Placement
+namespace RedoSchool.LevelGeneration.Generation.Application.Placement
 {
     /// <summary>MVP port; v1 stub.</summary>
     public interface IRewardPlacer

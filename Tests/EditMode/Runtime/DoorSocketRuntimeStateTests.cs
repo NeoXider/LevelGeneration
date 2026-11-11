@@ -3,8 +3,8 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 {

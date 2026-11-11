@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Runtime.Application;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 {

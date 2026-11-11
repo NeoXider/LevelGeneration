@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Diagnostics;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Planning;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Policies;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Diagnostics;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Planning;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Policies;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Facade
+namespace RedoSchool.LevelGeneration.Generation.Application.V2.Facade
 {
     public sealed class LayoutGenerationRequest
     {

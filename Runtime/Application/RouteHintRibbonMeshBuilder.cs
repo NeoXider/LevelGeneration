@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Пол под точкой ленты: луч вниз с высоты над последней принятой точкой. Возвращает, нашёл ли он пол,

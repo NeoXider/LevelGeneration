@@ -1,7 +1,7 @@
 using System.Linq;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Facade;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Facade;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
 {

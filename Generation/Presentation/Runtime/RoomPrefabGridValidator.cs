@@ -1,14 +1,14 @@
 ﻿using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime
+namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
 {
     /// <summary>
     /// Prefab-level authoring contract for procedural rooms.

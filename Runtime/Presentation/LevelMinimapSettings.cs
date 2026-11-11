@@ -1,7 +1,7 @@
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
+namespace RedoSchool.LevelGeneration.Runtime.Presentation
 {
     /// <summary>Как рисуется подсказка маршрута на картах.</summary>
     public enum RouteHintStyle

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>Исход решения о прогрессе подсказки маршрута.</summary>
     public enum RouteHintProgress

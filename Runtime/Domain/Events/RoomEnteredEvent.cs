@@ -1,6 +1,6 @@
-﻿using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+﻿using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Domain.Events
+namespace RedoSchool.LevelGeneration.Runtime.Domain.Events
 {
     /// <summary>
     /// Published on IRoomEventBus when the player enters a room.

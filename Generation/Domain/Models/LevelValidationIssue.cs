@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Models
+namespace RedoSchool.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Severity of a single <see cref="LevelValidationIssue"/>.

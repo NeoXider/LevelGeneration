@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
-using RedoSchool.Features.LevelGeneration.Runtime.Domain.Events;
+using RedoSchool.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Domain.Events;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
+namespace RedoSchool.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Player trigger for generated mission endpoints.

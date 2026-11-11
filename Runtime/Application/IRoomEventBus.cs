@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Mission-scoped internal event bus for runtime room events (Entered / Completed / DoorStateChanged).

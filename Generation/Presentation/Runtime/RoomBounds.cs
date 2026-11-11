@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime
+namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
 {
     /// <summary>
     /// AABB bounds of a room prefab. Used by validators, editor tooling and broad runtime metadata.

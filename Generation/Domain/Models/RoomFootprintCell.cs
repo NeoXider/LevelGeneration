@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Models
+namespace RedoSchool.LevelGeneration.Generation.Domain.Models
 {
     [Serializable]
     public struct RoomFootprintCell : IEquatable<RoomFootprintCell>

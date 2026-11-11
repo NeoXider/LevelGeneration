@@ -1,12 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Application;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.Features.LevelGeneration.Runtime.Presentation;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Runtime.Presentation;
 using UnityEngine;
 using Object = UnityEngine.Object;
 

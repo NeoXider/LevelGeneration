@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application
+namespace RedoSchool.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Matches mission interactive content with room templates. Every kind-dependent answer comes from

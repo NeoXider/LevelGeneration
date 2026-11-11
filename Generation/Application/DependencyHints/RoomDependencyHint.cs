@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.DependencyHints
+namespace RedoSchool.LevelGeneration.Generation.Application.DependencyHints
 {
     /// <summary>
     /// Declares that SourceRoomTemplateId should be placed at a topology distance from TargetRoomTemplateId.

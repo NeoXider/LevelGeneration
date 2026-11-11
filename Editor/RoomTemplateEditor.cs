@@ -1,15 +1,15 @@
 ﻿#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Infrastructure;
-using RedoSchool.Features.LevelGeneration.Generation.Infrastructure.Data;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Infrastructure;
+using RedoSchool.LevelGeneration.Generation.Infrastructure.Data;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEditor;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Editor
+namespace RedoSchool.LevelGeneration.Editor
 {
     [CustomEditor(typeof(RoomTemplate))]
     internal sealed class RoomTemplateEditor : UnityEditor.Editor

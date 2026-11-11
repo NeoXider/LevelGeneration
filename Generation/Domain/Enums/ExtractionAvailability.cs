@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Enums
+namespace RedoSchool.LevelGeneration.Generation.Domain.Enums
 {
     /// <summary>
     /// When the extraction gate becomes usable. See PLAN.md §G.1.

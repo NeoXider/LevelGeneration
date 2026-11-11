@@ -1,6 +1,6 @@
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
+namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Step 1 of generation: turn an archetype + config into a logical <see cref="LevelGraph"/> of

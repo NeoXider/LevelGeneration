@@ -1,6 +1,6 @@
 {
   "name": "RedoSchool.LevelGeneration",
-  "rootNamespace": "RedoSchool.Features.LevelGeneration.Generation.Application",
+  "rootNamespace": "RedoSchool.LevelGeneration.Generation.Application",
   "references": [
     "RedoSchool.LevelGeneration.Domain"
   ],

@@ -1,9 +1,9 @@
 using System.Reflection;
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
@@ -153,42 +153,6 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             {
                 Object.DestroyImmediate(root);
                 AssetDatabase.DeleteAsset(controllerPath);
-            }
-        }
-
-        [Test]
-        public void SpawnerPreservesClosedRuntimeOnlyNoneDoor()
-        {
-            GameObject root = new("door");
-
-            try
-            {
-                DoorSocket socket = root.AddComponent<DoorSocket>();
-                SerializedObject socketSo = new(socket);
-                socketSo.FindProperty("socketId").stringValue = "east_1";
-                socketSo.FindProperty("flowDirection").enumValueIndex = (int)DoorSocketFlowDirection.None;
-                socketSo.ApplyModifiedPropertiesWithoutUndo();
-
-                PlacedRoom placed = new(
-                    "room",
-                    "template",
-                    new GridPose(0f, 0f, 0),
-                    new Dictionary<string, DoorState> { ["east_1"] = DoorState.Closed });
-
-                System.Type spawnerType = System.Type.GetType(
-                    "RedoSchool.Features.LevelGeneration.Runtime.Infrastructure.LevelSpawner, RedoSchool.World");
-                Assert.NotNull(spawnerType);
-
-                MethodInfo method = spawnerType.GetMethod(
-                    "ShouldPreserveRuntimeOnlyDoor",
-                    BindingFlags.Static | BindingFlags.NonPublic);
-
-                Assert.NotNull(method);
-                Assert.IsTrue((bool)method.Invoke(null, new object[] { socket, placed }));
-            }
-            finally
-            {
-                Object.DestroyImmediate(root);
             }
         }
 

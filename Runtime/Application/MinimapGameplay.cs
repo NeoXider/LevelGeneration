@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>Где ученик с точки зрения подсказки маршрута и большой карты.</summary>
     public enum RouteHintPresence

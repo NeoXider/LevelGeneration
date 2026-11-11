@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Infrastructure;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Infrastructure;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEngine;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
@@ -94,7 +94,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
             public IReadOnlyList<string> Tags => Array.Empty<string>();
             public int EstimatedDurationSeconds => 60;
             public IReadOnlyList<IDoorSocketDescriptor> Doors => Array.Empty<IDoorSocketDescriptor>();
-            public RedoSchool.Features.LevelGeneration.Generation.Domain.Models.RoomFootprint Footprint => new(1, 1);
+            public RedoSchool.LevelGeneration.Generation.Domain.Models.RoomFootprint Footprint => new(1, 1);
             public string ModuleAssetId => null;
         }
     }

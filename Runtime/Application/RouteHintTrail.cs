@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>Where the student is relative to the shown trail after one <see cref="RouteHintTrail.Follow"/>.</summary>
     public readonly struct RouteHintTrailFollow

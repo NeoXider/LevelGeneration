@@ -1,7 +1,7 @@
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.Features.LevelGeneration.Runtime.Infrastructure;
-using RedoSchool.Features.LevelGeneration.Runtime.Presentation;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Runtime.Infrastructure;
+using RedoSchool.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 

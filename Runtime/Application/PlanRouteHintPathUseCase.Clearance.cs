@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>Visibility graph of one room for one clearance level; built once, valid until a doorway is registered.</summary>
     internal sealed class RouteHintNavigationGraph

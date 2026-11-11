@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Application;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Infrastructure
+namespace RedoSchool.LevelGeneration.Runtime.Infrastructure
 {
     /// <summary>
     /// Minimal <see cref="IRoomEventBus"/> backed by per-type subscriber lists.

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Planning
+namespace RedoSchool.LevelGeneration.Generation.Application.V2.Planning
 {
     public sealed class PacingGraphSemanticValidator
     {

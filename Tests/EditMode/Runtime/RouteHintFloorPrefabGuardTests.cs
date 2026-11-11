@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Runtime.Presentation;
+using RedoSchool.LevelGeneration.Runtime.Presentation;
 using UnityEngine;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime

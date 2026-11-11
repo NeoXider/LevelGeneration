@@ -1,5 +1,32 @@
 # Neoxider LevelGeneration Changelog
 
+## 5.0.0 — 2026-11-11 breaking: пространства имён `RedoSchool.LevelGeneration.*`
+
+**Ломающее изменение для кода, который ссылается на пакет:** корень пространств имён переименован с
+`RedoSchool.Features.LevelGeneration` на `RedoSchool.LevelGeneration` — теперь он совпадает с именами сборок
+пакета (`RedoSchool.LevelGeneration`, `.Domain`, `.Unity`, `.Runtime`, `.Runtime.Domain`, `.Editor`). Хвосты не
+менялись: `…Generation.Application.Pipeline`, `…Generation.Domain.Models`, `…Runtime.Presentation` и остальные
+на месте. Потребителю достаточно заменить префикс в `using` и в полных именах типов.
+
+- **Зачем.** Слово `Features` осталось от раскладки игры, из которой пакет был вынесен, и не значило в нём
+  ничего. Хуже того, четыре пространства (`…Editor`, `…Runtime.Application`, `…Runtime.Infrastructure`,
+  `…Runtime.Presentation`) игра RedoSchool объявляла у себя под теми же именами, то есть пакет и игра делили
+  пространство имён, и по имени нельзя было понять, чей это тип. После переименования пакет занимает свой
+  корень, игра — свой (`RedoSchool.World.*`).
+- **Что не менялось:** имена сборок, GUID скриптов и ассетов (префабы, сцены и `ScriptableObject` потребителя
+  продолжают ссылаться на те же скрипты), поведение генерации, `LayoutContract` (`2`) — сохранённые чекпойнты
+  миссий остаются действительными.
+- **Страж границы.** `LevelGenerationPackageInfoTests` запрещает ядру генерации (`Generation/Domain`,
+  `Generation/Application`) импортировать пространства игры; список запретов переведён на её новые корни
+  (`RedoSchool.World`, `RedoSchool.Teacher`, `RedoSchool.Player`, `RedoSchool.Hub`, `RedoSchool.Platform`,
+  `RedoSchool.CodePlayground`) и на собственный рантайм-слой пакета (`RedoSchool.LevelGeneration.Runtime`).
+- Сериализованные поля `m_EditorClassIdentifier` в ассетах пакета обновлены на новые имена; на загрузку
+  ассетов они не влияют.
+- **Тест, знавший игру, убран из пакета.** `DoorAutoOpenTriggerTests.SpawnerPreservesClosedRuntimeOnlyNoneDoor`
+  искал по строке тип `LevelSpawner` из сборки игры `RedoSchool.World` и вызывал его приватный метод через
+  reflection: пакет проверял чужой код, а вне RedoSchool тест был красным. Проверка переехала в тесты игры,
+  в пакете остались только тесты его собственных типов.
+
 ## 4.1.1 — 2026-10-29 fix: лишние .meta пустых папок
 
 - **Пакет без `.meta` пустых папок.** В репозитории лежали `.meta` пяти папок без файлов (`Application`,

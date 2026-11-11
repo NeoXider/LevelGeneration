@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Models
+namespace RedoSchool.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Pure logical graph of a mission: ordered list of <see cref="RoomNode"/>s plus directed edges by NodeId.

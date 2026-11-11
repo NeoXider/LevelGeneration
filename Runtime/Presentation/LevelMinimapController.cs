@@ -1,18 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
-using RedoSchool.Features.LevelGeneration.Runtime.Domain.Events;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Domain.Events;
 using UnityEngine;
 
 // Кадр карты без устройств ввода (TickFrame) — типизированная граница для EditMode-тестов, без reflection.
 [assembly: InternalsVisibleTo("RedoSchool.LevelGeneration.Tests.EditMode")]
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Presentation
+namespace RedoSchool.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Runtime minimap overlay. The compact map follows the player; the full map fits room bounds.

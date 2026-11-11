@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain
+namespace RedoSchool.LevelGeneration.Generation.Application.V2.Domain
 {
     public readonly struct PacingIntRange
     {

@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
+namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Opt-in diagnostics for the dead-end capping pass: records, per free door, whether it got a cap and,

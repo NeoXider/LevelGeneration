@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Enums
+namespace RedoSchool.LevelGeneration.Generation.Domain.Enums
 {
     /// <summary>
     /// Designer-authored main-path slot for hybrid generation.

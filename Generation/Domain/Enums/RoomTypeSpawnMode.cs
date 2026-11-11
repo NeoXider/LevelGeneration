@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Enums
+namespace RedoSchool.LevelGeneration.Generation.Domain.Enums
 {
     /// <summary>
     /// How a mission-level room type rule affects generated graph nodes.

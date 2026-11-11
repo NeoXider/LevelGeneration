@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
+namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Replacement hook for a physical-first placer.

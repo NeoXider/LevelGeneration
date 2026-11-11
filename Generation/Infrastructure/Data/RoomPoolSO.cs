@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Infrastructure.Data
+namespace RedoSchool.LevelGeneration.Generation.Infrastructure.Data
 {
     /// <summary>
     /// Reusable room prefab list for a planet/tileset. Consumer mission configs can reference one

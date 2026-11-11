@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Infrastructure
+namespace RedoSchool.LevelGeneration.Runtime.Infrastructure
 {
     /// <summary>
     /// Журнал рантайма карты уровня. Игра подключает свой журнал через <see cref="InfoSink"/> и

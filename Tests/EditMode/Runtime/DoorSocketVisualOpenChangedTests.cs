@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEngine;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime

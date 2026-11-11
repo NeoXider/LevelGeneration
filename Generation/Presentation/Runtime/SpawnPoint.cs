@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime
+namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
 {
     public enum SpawnPointKind
     {

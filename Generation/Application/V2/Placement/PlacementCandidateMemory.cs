@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Placement
+namespace RedoSchool.LevelGeneration.Generation.Application.V2.Placement
 {
     public sealed class PlacementCandidateMemory
     {

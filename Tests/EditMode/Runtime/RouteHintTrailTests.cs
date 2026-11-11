@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Runtime.Application;
+using RedoSchool.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime

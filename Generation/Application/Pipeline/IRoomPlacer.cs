@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
+namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Step 3 of generation: place selected rooms on a logical 2D grid, ensuring no AABB overlap.

@@ -1,8 +1,8 @@
 ﻿using System;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Infrastructure.Data
+namespace RedoSchool.LevelGeneration.Generation.Infrastructure.Data
 {
     [Serializable]
     public struct RoomWeightOverride

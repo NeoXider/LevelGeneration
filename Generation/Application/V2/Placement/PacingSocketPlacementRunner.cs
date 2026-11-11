@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Diagnostics;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Diagnostics;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Placement
+namespace RedoSchool.LevelGeneration.Generation.Application.V2.Placement
 {
     public sealed class PacingSocketPlacementRunner
     {

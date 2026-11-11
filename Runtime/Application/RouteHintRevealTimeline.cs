@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>Фаза показа подсказки маршрута: сначала путь на полу, потом пунктир на миникарте.</summary>
     public enum RouteHintRevealPhase

@@ -2,16 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using RedoSchool.Features.LevelGeneration.Generation.Application.DependencyHints;
-using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Facade;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Placement;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Policies;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Application.DependencyHints;
+using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Facade;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Placement;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Policies;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application
+namespace RedoSchool.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Часы одного прогона генерации (<see cref="MissionGenerator.GenerationClockFactory"/>). Служат ТОЛЬКО для

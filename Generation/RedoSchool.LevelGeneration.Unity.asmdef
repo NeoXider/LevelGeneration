@@ -1,6 +1,6 @@
 ﻿{
   "name": "RedoSchool.LevelGeneration.Unity",
-  "rootNamespace": "RedoSchool.Features.LevelGeneration.Generation",
+  "rootNamespace": "RedoSchool.LevelGeneration.Generation",
   "references": [
     "RedoSchool.LevelGeneration.Domain",
     "RedoSchool.LevelGeneration"

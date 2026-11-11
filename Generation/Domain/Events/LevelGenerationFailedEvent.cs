@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Events
+namespace RedoSchool.LevelGeneration.Generation.Domain.Events
 {
     /// <summary>
     /// Published when MissionGenerator exhausted retries and could not produce a valid layout.

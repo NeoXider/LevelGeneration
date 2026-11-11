@@ -1,6 +1,6 @@
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Events
+namespace RedoSchool.LevelGeneration.Generation.Domain.Events
 {
     /// <summary>
     /// Published when MissionGenerator successfully produced a <see cref="LevelLayout"/>.

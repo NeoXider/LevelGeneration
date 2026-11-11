@@ -1,4 +1,4 @@
-using RedoSchool.Features.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Application;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
 {

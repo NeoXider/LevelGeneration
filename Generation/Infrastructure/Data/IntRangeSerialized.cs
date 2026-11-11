@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Infrastructure.Data
+namespace RedoSchool.LevelGeneration.Generation.Infrastructure.Data
 {
     /// <summary>
     /// Serializable integer range (inclusive). Used in <c>TilesetSO</c> defaults.

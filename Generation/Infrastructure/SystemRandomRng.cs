@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Application;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Infrastructure
+namespace RedoSchool.LevelGeneration.Generation.Infrastructure
 {
     /// <summary>
     /// <see cref="IDeterministicRng"/> backed by <see cref="System.Random"/>.

@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Generation.Infrastructure
+namespace RedoSchool.LevelGeneration.Generation.Infrastructure
 {
     /// <summary>
     /// Где проект хранит контент генерации — для редакторного поиска комнат и инструментов авторинга. Пакет

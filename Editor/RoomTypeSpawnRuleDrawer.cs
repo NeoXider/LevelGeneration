@@ -1,10 +1,10 @@
 #if UNITY_EDITOR
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Infrastructure.Data;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Infrastructure.Data;
 using UnityEditor;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Editor
+namespace RedoSchool.LevelGeneration.Editor
 {
     [CustomPropertyDrawer(typeof(RoomKindSpawnRule))]
     public sealed class RoomKindSpawnRuleDrawer : PropertyDrawer

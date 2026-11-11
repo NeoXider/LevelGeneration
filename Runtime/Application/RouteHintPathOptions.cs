@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// How <see cref="PlanRouteHintPathUseCase"/> shapes the route inside rooms. <see cref="Legacy"/> (all zeros)

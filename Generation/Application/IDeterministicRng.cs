@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application
+namespace RedoSchool.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Seeded pseudo-random source. Deterministic for a given seed — all generator stages share one instance.

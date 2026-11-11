@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Enums
+namespace RedoSchool.LevelGeneration.Generation.Domain.Enums
 {
     /// <summary>
     /// Authoring-side local side of a door socket. Tools can infer it from the socket position;

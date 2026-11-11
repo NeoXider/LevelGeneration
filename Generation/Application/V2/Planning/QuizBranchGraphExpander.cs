@@ -1,7 +1,7 @@
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Planning
+namespace RedoSchool.LevelGeneration.Generation.Application.V2.Planning
 {
     public sealed class QuizBranchGraphExpander
     {

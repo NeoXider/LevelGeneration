@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Runtime.Application
+namespace RedoSchool.LevelGeneration.Runtime.Application
 {
     /// <summary>Why the route hint is re-planned (or not).</summary>
     public enum RouteHintReplanReason

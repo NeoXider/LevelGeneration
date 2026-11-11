@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Domain.Models
+namespace RedoSchool.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Local 2D wall segment used by generation collision checks.

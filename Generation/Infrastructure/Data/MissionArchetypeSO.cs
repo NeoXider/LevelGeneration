@@ -1,7 +1,7 @@
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Infrastructure.Data
+namespace RedoSchool.LevelGeneration.Generation.Infrastructure.Data
 {
     /// <summary>
     /// Designer-facing archetype: which built-in shape to use when MissionGraphBuilder builds the spine.

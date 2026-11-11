@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Facade;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Facade;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
 {
@@ -102,9 +102,9 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
         [Test]
         public void RoomDatabase_OrdersRoomsByRoomId_RegardlessOfInsertionOrder()
         {
-            RedoSchool.Features.LevelGeneration.Generation.Infrastructure.RoomDatabase forward =
+            RedoSchool.LevelGeneration.Generation.Infrastructure.RoomDatabase forward =
                 new(new[] { MakeDoorlessPassage("passage_a"), MakeDoorlessPassage("passage_b"), MakeDoorlessPassage("passage_c") });
-            RedoSchool.Features.LevelGeneration.Generation.Infrastructure.RoomDatabase reversed =
+            RedoSchool.LevelGeneration.Generation.Infrastructure.RoomDatabase reversed =
                 new(new[] { MakeDoorlessPassage("passage_c"), MakeDoorlessPassage("passage_b"), MakeDoorlessPassage("passage_a") });
 
             string[] forwardIds = ToRoomIds(forward.GetRoomsForTileset("test"));

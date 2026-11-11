@@ -2,13 +2,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Placement;
-using RedoSchool.Features.LevelGeneration.Generation.Application.V2.Selection;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Placement;
+using RedoSchool.LevelGeneration.Generation.Application.V2.Selection;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
 {
@@ -375,7 +375,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
         }
 
         private sealed class
-            FakeRoomPlacer : RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline.IRoomPlacer
+            FakeRoomPlacer : RedoSchool.LevelGeneration.Generation.Application.Pipeline.IRoomPlacer
         {
             public bool WasCalled { get; private set; }
 

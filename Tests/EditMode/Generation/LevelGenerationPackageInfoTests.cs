@@ -2,7 +2,7 @@
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
-using RedoSchool.Features.LevelGeneration;
+using RedoSchool.LevelGeneration;
 using UnityEngine;
 
 namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
@@ -60,7 +60,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
                 Path.Combine(packageRoot, "Generation", "Application", "RedoSchool.LevelGeneration.asmdef"),
                 new[] { "RedoSchool.LevelGeneration.Domain" });
 
-            string[] forbiddenUsingPrefixes = new[] { "using UnityEngine", "using UnityEditor", "using Cysharp", "using MessagePipe", "using VContainer", "using RedoSchool.Features.MissionMap", "using RedoSchool.Features.Quiz", "using RedoSchool.Features.Cheats", "using RedoSchool.Features.ChatUI", "using RedoSchool.Features.GameplayIntegration", "using RedoSchool.Features.LevelGeneration.Rooms", "using RedoSchool.Features.LevelGeneration.Runtime" };
+            string[] forbiddenUsingPrefixes = new[] { "using UnityEngine", "using UnityEditor", "using Cysharp", "using MessagePipe", "using VContainer", "using RedoSchool.World", "using RedoSchool.Teacher", "using RedoSchool.Player", "using RedoSchool.Hub", "using RedoSchool.Platform", "using RedoSchool.CodePlayground", "using RedoSchool.LevelGeneration.Runtime" };
 
             AssertNoForbiddenUsings(Path.Combine(packageRoot, "Generation", "Domain"), forbiddenUsingPrefixes);
             AssertNoForbiddenUsings(Path.Combine(packageRoot, "Generation", "Application"), forbiddenUsingPrefixes);

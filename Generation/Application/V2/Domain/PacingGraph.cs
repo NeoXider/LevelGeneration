@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Enums;
+using RedoSchool.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.V2.Domain
+namespace RedoSchool.LevelGeneration.Generation.Application.V2.Domain
 {
     public sealed class PacingGraphNode
     {

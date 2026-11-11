@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Generation.Presentation.Runtime
+namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
 {
     /// <summary>Scene marker for waypoint navigation (NPCs / hints / camera). Inert in MVP.</summary>
     public sealed class WaypointNode : MonoBehaviour

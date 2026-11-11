@@ -1,13 +1,13 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
-using RedoSchool.Features.LevelGeneration.Generation.Application;
-using RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.Features.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.Features.LevelGeneration.Generation.Infrastructure;
+using RedoSchool.LevelGeneration.Generation.Application;
+using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
+using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using RedoSchool.LevelGeneration.Generation.Infrastructure;
 using UnityEditor;
 using UnityEngine;
 
-namespace RedoSchool.Features.LevelGeneration.Editor
+namespace RedoSchool.LevelGeneration.Editor
 {
     public sealed class RoomCompatibilityReportWindow : EditorWindow
     {

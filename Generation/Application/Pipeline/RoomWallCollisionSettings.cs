@@ -1,4 +1,4 @@
-namespace RedoSchool.Features.LevelGeneration.Generation.Application.Pipeline
+namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
 {
     public static class RoomWallCollisionSettings
     {
