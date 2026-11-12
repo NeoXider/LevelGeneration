@@ -7,19 +7,19 @@ using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Пакет генерации уровней не зависит от игры, в которую встроен: его сборки ссылаются только на свои сборки,
     /// .NET и Unity. Ввод и журнал игра подключает сама — через <c>IMinimapGameplayContext</c> и
     /// <c>LevelGenerationRuntimeLog</c>. Правила проекта-хозяина папку пакета не сканируют, поэтому страж свой:
-    /// до него карта уровня тянула за собой игровые <c>RedoSchool.Player.Input</c> и
-    /// <c>RedoSchool.Platform.Shared.Logging</c>, и пакет не собирался отдельно от игры.
+    /// до него карта уровня тянула за собой сборки игры-хозяина (ввод игрока и журнал),
+    /// и пакет не собирался отдельно от игры.
     /// </summary>
     [Category("LevelGeneration")]
     public sealed class LevelGenerationIndependenceTests
     {
-        private const string PackageAssemblyPrefix = "RedoSchool.LevelGeneration";
+        private const string PackageAssemblyPrefix = "Neoxider.LevelGeneration";
 
         /// <summary>Сборки пакета — по имени, а не списком: новый asmdef попадает под стража сам.</summary>
         private static IEnumerable<string> PackageAssemblies() => CompilationPipeline
@@ -58,7 +58,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 
         /// <summary>
         /// Скомпилированная сборка показывает, чьи типы код действительно использует. Белый список, а не запрет
-        /// на <c>RedoSchool.*</c>: автоподключаемые библиотеки хозяина (Newtonsoft, DOTween, R3) тоже ломают сборку
+        /// на имена конкретной игры: автоподключаемые библиотеки хозяина (Newtonsoft, DOTween, R3) тоже ломают сборку
         /// пакета отдельно от игры.
         /// </summary>
         [TestCaseSource(nameof(PackageAssemblies))]
@@ -81,7 +81,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         private static bool IsDotNetAssembly(string name) =>
             name == "mscorlib" || name == "netstandard" || HasPrefix(name, "System") || HasPrefix(name, "Microsoft.CSharp");
 
-        /// <summary>Совпадение целиком или по границе точки: <c>RedoSchool.LevelGenerationX</c> — чужая сборка.</summary>
+        /// <summary>Совпадение целиком или по границе точки: <c>Neoxider.LevelGenerationX</c> — чужая сборка.</summary>
         private static bool HasPrefix(string name, string prefix) =>
             name == prefix || name.StartsWith(prefix + ".", StringComparison.Ordinal);
 

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Infrastructure.Data;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Infrastructure.Data;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEngine;
 
 #if UNITY_EDITOR
@@ -9,7 +9,7 @@ using System.Linq;
 using UnityEditor;
 #endif
 
-namespace RedoSchool.LevelGeneration.Generation.Infrastructure
+namespace Neoxider.LevelGeneration.Generation.Infrastructure
 {
     /// <summary>Room catalog backed by prefab root <see cref="RoomTemplate"/> components.</summary>
     public sealed class RoomDatabase : IRoomDatabase

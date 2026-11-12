@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Domain.Events;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Domain.Events;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Infrastructure
+namespace Neoxider.LevelGeneration.Runtime.Infrastructure
 {
     /// <summary>
     /// Keeps only the current room and nearby connected rooms active.
@@ -38,7 +38,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Infrastructure
         {
             DisposeSubscription();
             // Посещённые комнаты — состояние ОДНОЙ миссии. Без сброса новая миссия с теми же идентификаторами
-            // узлов держала бы включёнными комнаты, в которых ученик был в прошлой.
+            // узлов держала бы включёнными комнаты, в которых игрок был в прошлой.
             _visitedRoomIds.Clear();
             _rooms = rooms;
             _currentNodeId = layout != null ? layout.StartNodeId : null;

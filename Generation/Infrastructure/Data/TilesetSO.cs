@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Generation.Infrastructure.Data
+namespace Neoxider.LevelGeneration.Generation.Infrastructure.Data
 {
     /// <summary>
     /// Visual world definition: list of rooms + default generation parameters.

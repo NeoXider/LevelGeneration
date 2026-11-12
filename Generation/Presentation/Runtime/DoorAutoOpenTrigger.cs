@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
+namespace Neoxider.LevelGeneration.Generation.Presentation.Runtime
 {
     /// <summary>
     /// Child trigger volume for a door. Opens visual/animator only when DoorSocket.AutoOpen is enabled

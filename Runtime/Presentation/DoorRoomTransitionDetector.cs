@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Domain.Events;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Domain.Events;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Door-plane based room transition detector.

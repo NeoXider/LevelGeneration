@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Domain.Events
+namespace Neoxider.LevelGeneration.Generation.Domain.Events
 {
     /// <summary>
     /// Published when MissionGenerator exhausted retries and could not produce a valid layout.

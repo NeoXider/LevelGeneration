@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Дверь критического пути, ориентированная по ходу к выходу: из <see cref="FromNodeId"/>

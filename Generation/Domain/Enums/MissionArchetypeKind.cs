@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Domain.Enums
+namespace Neoxider.LevelGeneration.Generation.Domain.Enums
 {
     /// <summary>
     /// Built-in archetype shapes referenced by <c>MissionArchetypeSO</c>.

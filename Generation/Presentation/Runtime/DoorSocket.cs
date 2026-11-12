@@ -1,8 +1,8 @@
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
+namespace Neoxider.LevelGeneration.Generation.Presentation.Runtime
 {
     /// <summary>
     /// Scene marker for one door socket on a room prefab. The room placer / connector references this by

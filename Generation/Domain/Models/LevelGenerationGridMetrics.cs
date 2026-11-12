@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Domain.Models
+namespace Neoxider.LevelGeneration.Generation.Domain.Models
 {
     public static class LevelGenerationGridMetrics
     {

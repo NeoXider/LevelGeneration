@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Runtime.Domain.Events
+namespace Neoxider.LevelGeneration.Runtime.Domain.Events
 {
     /// <summary>
     /// Published on <c>IRoomEventBus</c> when an IRoomGameplayModule reports <c>Success=true</c>.

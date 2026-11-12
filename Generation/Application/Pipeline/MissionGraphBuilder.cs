@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
+namespace Neoxider.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Builds the logical mission graph using one generator-facing room kind.
@@ -12,14 +12,20 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
     public sealed class MissionGraphBuilder : IMissionGraphBuilder
     {
         private readonly IInteractiveRoomKindRules _interactiveRoomKinds;
+        private readonly RoomTemplateRoles _roles;
 
         /// <param name="interactiveRoomKinds">
         /// Interactive room types of the host game: content support, answer branches and placement hints.
         /// </param>
-        public MissionGraphBuilder(IInteractiveRoomKindRules interactiveRoomKinds)
+        /// <param name="roles">
+        /// Templates of the host's tileset for the rooms the builder inserts itself (passages, branch hubs);
+        /// <c>null</c> — <see cref="RoomTemplateRoles.None"/>, any compatible template.
+        /// </param>
+        public MissionGraphBuilder(IInteractiveRoomKindRules interactiveRoomKinds, RoomTemplateRoles roles = null)
         {
             _interactiveRoomKinds = interactiveRoomKinds
                                     ?? throw new ArgumentNullException(nameof(interactiveRoomKinds));
+            _roles = roles ?? RoomTemplateRoles.None;
         }
 
         public LevelGraph Build(IMissionConfigView config, ITilesetView tileset, IDeterministicRng rng)
@@ -302,7 +308,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
 
                 if (nodes[hostIdx].Kind == RoomKind.Passage && string.IsNullOrEmpty(nodes[hostIdx].ContentId))
                 {
-                    nodes[hostIdx] = WithPreferredRoomTemplateId(nodes[hostIdx], "PlusTonnel_3Doors");
+                    nodes[hostIdx] = WithPreferredRoomTemplateId(nodes[hostIdx], _roles.BranchHubTemplateId);
                 }
 
                 string previousNodeId = nodes[hostIdx].NodeId;
@@ -329,7 +335,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
                     {
                         spec = new SpineEntry(
                             RoomKind.Passage,
-                            "Toonel");
+                            _roles.PassageTemplateId);
                         hasRuleEntry = false;
                         shouldTryInsertBranchPassageSpacer = false;
                         branchPassageSpacerBudget--;
@@ -389,7 +395,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
         /// Граф принудительного пути: старт → перечисленные комнаты → одна выходная.
         /// <para>
         /// Содержимое комнаты едет вместе с ней (<see cref="RoomNode.ContentId"/>), иначе интерактивная
-        /// комната осталась бы пустой и не показала бы урок. Раздувание «двери правильного ответа»
+        /// комната осталась бы пустой и не показала бы свой контент. Раздувание «двери правильного ответа»
         /// намеренно НЕ выполняется: критический путь принудительного уровня — это ровно заказанные
         /// комнаты, и виду-двери (MazeBranch) остаётся жить по собственным правилам в обычной генерации.
         /// </para>
@@ -437,7 +443,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
             return true;
         }
 
-        private static RoomNode WithPreferredRoomTemplateId(RoomNode node, string preferredRoomTemplateId)
+        private RoomNode WithPreferredRoomTemplateId(RoomNode node, string preferredRoomTemplateId)
         {
             if (node == null || string.IsNullOrWhiteSpace(preferredRoomTemplateId))
             {
@@ -445,8 +451,8 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
             }
 
             if (!string.IsNullOrWhiteSpace(node.PreferredRoomTemplateId)
-                && !(string.Equals(node.PreferredRoomTemplateId, "Toonel", StringComparison.Ordinal)
-                     && string.Equals(preferredRoomTemplateId, "PlusTonnel_3Doors", StringComparison.Ordinal)))
+                && !(string.Equals(node.PreferredRoomTemplateId, _roles.PassageTemplateId, StringComparison.Ordinal)
+                     && string.Equals(preferredRoomTemplateId, _roles.BranchHubTemplateId, StringComparison.Ordinal)))
             {
                 return node;
             }
@@ -484,7 +490,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
             return entries;
         }
 
-        private static void PreferStraightMainPassages(List<SpineEntry> spine)
+        private void PreferStraightMainPassages(List<SpineEntry> spine)
         {
             if (spine == null)
             {
@@ -498,7 +504,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
                     && string.IsNullOrEmpty(entry.PreferredRoomTemplateId)
                     && string.IsNullOrEmpty(entry.ContentId))
                 {
-                    spine[i] = new SpineEntry(RoomKind.Passage, "Toonel");
+                    spine[i] = new SpineEntry(RoomKind.Passage, _roles.PassageTemplateId);
                 }
             }
         }
@@ -965,7 +971,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
                 if (string.IsNullOrWhiteSpace(current.ContentId)
                     || next.Kind != RoomKind.Passage
                     || (!string.IsNullOrEmpty(next.PreferredRoomTemplateId)
-                        && !string.Equals(next.PreferredRoomTemplateId, "Toonel", StringComparison.Ordinal))
+                        && !string.Equals(next.PreferredRoomTemplateId, _roles.PassageTemplateId, StringComparison.Ordinal))
                     || !string.IsNullOrEmpty(next.ContentId))
                 {
                     continue;
@@ -997,7 +1003,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
             return Clamp(plannedBranchEntryCount, 4, 24);
         }
 
-        private static string AddQuizBranchCorrectAnswerTunnels(
+        private string AddQuizBranchCorrectAnswerTunnels(
             List<RoomNode> nodes,
             List<LevelGraphEdge> edges,
             string quizNodeId,
@@ -1009,19 +1015,19 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
                 firstTunnelNodeId,
                 RoomKind.Passage,
                 isOnMainPath: isOnMainPath,
-                preferredRoomTemplateId: "Toonel"));
+                preferredRoomTemplateId: _roles.PassageTemplateId));
             nodes.Add(new RoomNode(
                 secondTunnelNodeId,
                 RoomKind.Passage,
                 isOnMainPath: isOnMainPath,
-                preferredRoomTemplateId: "Toonel"));
+                preferredRoomTemplateId: _roles.PassageTemplateId));
             edges.Add(new LevelGraphEdge(quizNodeId, firstTunnelNodeId, isOnMainPath,
                 EdgeBranchRole.MazeCorrectExit));
             edges.Add(new LevelGraphEdge(firstTunnelNodeId, secondTunnelNodeId, isOnMainPath));
             return secondTunnelNodeId;
         }
 
-        private static void AddQuizBranchWrongAnswerTunnels(
+        private void AddQuizBranchWrongAnswerTunnels(
             List<RoomNode> nodes,
             List<LevelGraphEdge> edges,
             string quizNodeId,
@@ -1041,7 +1047,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
                     RoomKind.Passage,
                     isOnMainPath: false,
                     isDeadEnd: false,
-                    preferredRoomTemplateId: "Toonel"));
+                    preferredRoomTemplateId: _roles.PassageTemplateId));
                 edges.Add(new LevelGraphEdge(quizNodeId, nodeId, false, EdgeBranchRole.MazeWrongDeadEnd));
             }
         }
@@ -1064,7 +1070,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
                        out optionCount);
         }
 
-        private static void BuildBranchInteractiveEntries(
+        private void BuildBranchInteractiveEntries(
             IReadOnlyList<InteractiveSpineEntry> contentEntries,
             int startIndex,
             List<SpineEntry> branchEntries,
@@ -1112,7 +1118,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
             }
         }
 
-        private static void AppendInteractiveEntry(
+        private void AppendInteractiveEntry(
             List<SpineEntry> entries,
             InteractiveSpineEntry content,
             ref string previousInteractiveKind)
@@ -1122,7 +1128,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
                 AddPassageSpacers(
                     entries,
                     content.PassageSpacerBefore,
-                    content.PreferredPassageSpacerRoomTemplateId ?? "Toonel");
+                    content.PreferredPassageSpacerRoomTemplateId ?? _roles.PassageTemplateId);
                 previousInteractiveKind = null;
             }
 

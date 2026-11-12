@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.LevelGeneration.Generation.Domain.Models
+namespace Neoxider.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Room size in generator grid cells. Prefab dimensions should be multiples of the level cell size.

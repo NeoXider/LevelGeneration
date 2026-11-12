@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     [Category("LevelGeneration")]
     public sealed class RouteHintFloorViewTests
@@ -448,7 +448,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Render_HeadAheadOfTheStudent_DrawsNoStarsBehindIt()
+        public void Render_HeadAheadOfThePlayer_DrawsNoStarsBehindIt()
         {
             RouteHintFloorView view = CreateView(true);
             LevelMinimapSettings settings = CreateSettings(withoutJitter: true);

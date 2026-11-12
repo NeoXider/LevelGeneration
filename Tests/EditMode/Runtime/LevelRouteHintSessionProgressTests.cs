@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Runtime.Application;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Сессия подсказки: боковые комнаты, тупики и ветки неверных ответов не трогают таймер

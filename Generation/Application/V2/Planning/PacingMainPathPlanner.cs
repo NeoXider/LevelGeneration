@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.V2.Planning
+namespace Neoxider.LevelGeneration.Generation.Application.V2.Planning
 {
     public sealed class PacingMainPathPlanner
     {
@@ -10,7 +10,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.V2.Planning
         // into a backtracking graph branch. For those missions, the main graph keeps only the correct
         // MazeBranch tunnel; free answer doors are left for DeadEndRoomPostProcessor after the main route is
         // placed. A small spacer range still gives rigid rooms enough room to turn without producing a huge
-        // 30+ room lesson.
+        // 30+ room level.
         private const int DenseMandatoryThreshold = 5;
         private const int BetweenMandatoryMinGap = 1;
         private const int BetweenMandatoryMaxGap = 2;

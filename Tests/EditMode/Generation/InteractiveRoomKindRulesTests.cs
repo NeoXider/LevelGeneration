@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
+namespace Neoxider.LevelGeneration.Tests.Generation
 {
     /// <summary>
     /// How the generator resolves interactive room types: content kinds exactly (the content reader and the

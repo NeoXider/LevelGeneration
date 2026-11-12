@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Application.DependencyHints;
-using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Infrastructure;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Application.DependencyHints;
+using Neoxider.LevelGeneration.Generation.Application.Pipeline;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Infrastructure;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
+namespace Neoxider.LevelGeneration.Tests.Generation
 {
     [Category("LevelGeneration")]
     public sealed class MissionGeneratorTests

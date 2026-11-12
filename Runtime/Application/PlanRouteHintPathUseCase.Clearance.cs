@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>Visibility graph of one room for one clearance level; built once, valid until a doorway is registered.</summary>
     internal sealed class RouteHintNavigationGraph
@@ -22,7 +22,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
     /// props on the floor (<see cref="RouteHintRoom.Blockers"/>); the clearance steps down
     /// (full, three quarters, a little over half) before the legacy 0.45 m search takes over, so a narrow room
     /// never loses its route. Doorways are entered and left through an approach point straight in front of
-    /// the door, and an endpoint that stands too close to a wall (student, task panel) is pulled to the nearest
+    /// the door, and an endpoint that stands too close to a wall (player, task panel) is pulled to the nearest
     /// point with the wanted clearance first.
     /// </summary>
     public static partial class PlanRouteHintPathUseCase

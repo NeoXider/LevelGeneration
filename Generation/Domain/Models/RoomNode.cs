@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.LevelGeneration.Generation.Domain.Models
+namespace Neoxider.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Logical node in the generated <see cref="LevelGraph"/>. One node = one future placed room.

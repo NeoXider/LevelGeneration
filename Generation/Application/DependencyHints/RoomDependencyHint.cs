@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.DependencyHints
+namespace Neoxider.LevelGeneration.Generation.Application.DependencyHints
 {
     /// <summary>
     /// Declares that SourceRoomTemplateId should be placed at a topology distance from TargetRoomTemplateId.
@@ -30,7 +30,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.DependencyHints
 
     /// <summary>
     /// Достижимость ключа до его замка. Ключ годится только тогда, когда до его комнаты можно дойти от старта,
-    /// ни разу не входя в комнату-замок: иначе ученик упирается в запертую дверь, а ключ лежит за ней.
+    /// ни разу не входя в комнату-замок: иначе игрок упирается в запертую дверь, а ключ лежит за ней.
     /// <para>
     /// Обход идёт от старта по дверям в обе стороны (двери проходимы в обе стороны, петля вокруг замка —
     /// законный путь к ключу); комнату-замок обход не посещает и не раскрывает. Один и тот же обход использует

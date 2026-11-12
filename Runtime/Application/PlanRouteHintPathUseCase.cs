@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     public enum RouteHintPathOutcome
     {
@@ -54,7 +54,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         private const float DoorwayWallRadiusMeters = 1.5f;
 
         /// <summary>
-        /// Farthest a student may stand from the floor of a revealed room (doorway, door frame, a step past
+        /// Farthest a player may stand from the floor of a revealed room (doorway, door frame, a step past
         /// the floor edge) and still start a route from the nearest floor point.
         /// </summary>
         public const float StartSnapMeters = 1.2f;
@@ -62,12 +62,12 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         private const float StepWallInsetMeters = 0.02f;
 
         /// <summary>
-        /// Последний, «узкий» поиск держит от предмета на полу только плечо ученика, а не запас стены: проход между
+        /// Последний, «узкий» поиск держит от предмета на полу только плечо игрока, а не запас стены: проход между
         /// партами шириной в шаг остаётся проходом. Сам контур предмета не пересекается никогда.
         /// </summary>
         private const float ObstacleNarrowInsetMeters = 0.3f;
 
-        /// <summary>На сколько за край предмета ученик, стоящий на нём, сходит на пол.</summary>
+        /// <summary>На сколько за край предмета игрок, стоящий на нём, сходит на пол.</summary>
         private const float ObstacleStepOffMeters = 0.35f;
 
         /// <summary>Свободное место после схода с предмета: не впритык к стене или соседнему предмету.</summary>
@@ -299,7 +299,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
                 return RouteHintPathOutcome.PlayerRoomUnknown;
             }
 
-            // Ученик стоит на столе или ящике: его точка в плане — внутри предмета, и путь от неё прошёл бы
+            // Игрок стоит на столе или ящике: его точка в плане — внутри предмета, и путь от неё прошёл бы
             // сквозь соседние предметы (и лента поднялась бы на их высоту). Сначала шаг вниз — на ближайшее
             // свободное место пола за краем предмета, оттуда обычный обход.
             if (geometry.TryGetRoom(playerRoom, out RouteHintRoom startRoom) && startRoom.IsInsideObstacle(start)
@@ -356,7 +356,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
-        /// Where the route starts and in which room. The student's own point when it lies on a revealed floor;
+        /// Where the route starts and in which room. The player's own point when it lies on a revealed floor;
         /// otherwise the nearest floor point of a revealed room within <see cref="StartSnapMeters"/> (a doorway
         /// sits a few decimetres outside the floor cells of both neighbours); otherwise the current room as
         /// before, and the path search reports the failure.
@@ -390,7 +390,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
-        /// The nearest free floor point next to the obstacle the student stands on: just past the nearest edge or
+        /// The nearest free floor point next to the obstacle the player stands on: just past the nearest edge or
         /// corner of that obstacle, on this room's floor, outside every obstacle and not pressed against a wall.
         /// Rings around the point are the fallback when the obstacle stands in a corner.
         /// </summary>
@@ -483,7 +483,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
-        /// The step down from the prop the student stands on is drawn as a straight segment, so the whole segment —
+        /// The step down from the prop the player stands on is drawn as a straight segment, so the whole segment —
         /// not only its end — must stay clear: it may cross only the edges of the props that contain
         /// <paramref name="from"/> (the ones being stepped off), never a wall or any other prop. Without this a
         /// bench pushed against the table let the nearest free corner win and the first segment ran through the
@@ -530,7 +530,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
-        /// The student stands where no first step is allowed: in a doorway between jambs, in a nook, against a
+        /// The player stands where no first step is allowed: in a doorway between jambs, in a nook, against a
         /// wall that the recovery rule cannot leave in a straight line. He did walk there, so a short step to
         /// a nearby floor point that does not cross a wall is trusted, and the route starts from that point.
         /// Rings are tried from the closest outwards and the shortest total route of the first working ring wins.

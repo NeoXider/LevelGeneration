@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Infrastructure.Data;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Infrastructure.Data;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
+namespace Neoxider.LevelGeneration.Generation.Presentation.Runtime
 {
     /// <summary>
     /// Root MonoBehaviour on a room prefab. This is the room template source of truth for generation.

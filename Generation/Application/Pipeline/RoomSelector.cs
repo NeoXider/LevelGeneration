@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
+namespace Neoxider.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Default room selector. Filters templates by tileset, RoomKind, role flags and required connectable doors.

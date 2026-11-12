@@ -1,6 +1,6 @@
 // The historical asset path is retained to preserve its Unity GUID. This shader draws only star
 // billboards. No floor band, chevrons, autonomous shader clock or VFX Graph.
-Shader "RedoSchool/LevelGeneration/RouteHintFloorStars"
+Shader "Neoxider/LevelGeneration/RouteHintFloorStars"
 {
     Properties
     {

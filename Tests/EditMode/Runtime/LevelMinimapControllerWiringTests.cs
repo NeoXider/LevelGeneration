@@ -1,18 +1,18 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Domain.Events;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Domain.Events;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Проводка контроллера миникарты: раскрытие при входе, события дверей и
@@ -230,140 +230,6 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
                 0.01f, "после завершения задания цель — фактическая дверь");
         }
 
-        [Test]
-        public void RouteHint_AuthoredStartPrefab_UsesFloorAtPlacementBounds()
-        {
-            const string prefabPath =
-                "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/StartToonel.prefab";
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            Assert.NotNull(prefab);
-            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            _created.Add(instance);
-            RoomTemplate template = instance.GetComponent<RoomTemplate>();
-            Assert.NotNull(template);
-            RoomInstance room = instance.GetComponent<RoomInstance>() ?? instance.AddComponent<RoomInstance>();
-            room.Configure("n_start", RoomKind.Start, template);
-            DoorSocket east = template.FindSocket("east");
-            Assert.NotNull(east);
-            Quaternion rotation = instance.transform.rotation;
-            Vector3 origin = instance.transform.position;
-            RoomWorldPose pose = new(origin.x, origin.y, origin.z,
-                rotation.x, rotation.y, rotation.z, rotation.w);
-            LevelLayout layout = new(new[]
-                {
-                    new PlacedRoom("n_start", template.RoomId, new GridPose(0f, 0f, 0),
-                        new Dictionary<string, DoorState>(), pose, template.Footprint, template.FootprintShape),
-                    Room("n_objective", 2f, new Dictionary<string, DoorState>())
-                },
-                new[] { new DoorConnection("n_start", "east", "n_objective", "west", true) },
-                "n_start", new[] { "n_objective" });
-            LevelMinimapController controller = CreateController(out LevelMinimapSettings settings);
-            Vector3 playerPoint = instance.transform.TransformPoint(new Vector3(
-                template.PlacementBoundsMinXMeters + 2.5f, 0f,
-                template.PlacementBoundsMinZMeters + 2.5f));
-            PlacePlayer(controller, playerPoint);
-            controller.Bind(layout, null, Rooms(room));
-
-            controller.UpdateRouteHint(settings.RouteHintIdleSeconds, 0f, true);
-
-            Assert.AreEqual(RouteHintPathOutcome.Planned, controller.LastRouteHintPathOutcome);
-            Vector3 doorCenter = east.ResolveAuthoringWorldCenter();
-            Vector2 end = controller.RouteHintWorldPath[controller.RouteHintWorldPath.Count - 1];
-            Assert.Less(Vector2.Distance(end, new Vector2(doorCenter.x, doorCenter.z)), 0.05f);
-            Assert.IsFalse(controller.Session.IsRoomRevealed("n_objective"));
-        }
-
-        [TestCase("Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/EndToonel.prefab", "entry")]
-        public void RouteHint_AuthoredEntrySocket_IsReachableFromRoomInterior(string prefabPath, string socketId)
-        {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            Assert.NotNull(prefab);
-            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            _created.Add(instance);
-            RoomTemplate template = instance.GetComponent<RoomTemplate>();
-            Assert.NotNull(template);
-            DoorSocket entry = template.FindSocket(socketId);
-            Assert.NotNull(entry);
-            RoomInstance room = instance.GetComponent<RoomInstance>() ?? instance.AddComponent<RoomInstance>();
-            room.Configure("n_start", RoomKind.Start, template);
-            Vector3 origin = instance.transform.position;
-            Quaternion rotation = instance.transform.rotation;
-            RoomWorldPose pose = new(origin.x, origin.y, origin.z,
-                rotation.x, rotation.y, rotation.z, rotation.w);
-            LevelLayout layout = new(new[]
-                {
-                    new PlacedRoom("n_start", template.RoomId, new GridPose(0f, 0f, 0),
-                        new Dictionary<string, DoorState>(), pose, template.Footprint, template.FootprintShape),
-                    Room("n_next", 2f, new Dictionary<string, DoorState>())
-                }, new[] { new DoorConnection("n_start", socketId, "n_next", "west", true) },
-                "n_start", new[] { "n_next" });
-            LevelMinimapController controller = CreateController(out LevelMinimapSettings settings);
-            Vector3 interior = entry.ResolveAuthoringWorldCenter()
-                               - entry.ResolveAuthoringWorldOutward(instance.transform).normalized;
-            PlacePlayer(controller, interior);
-            controller.Bind(layout, null, Rooms(room));
-
-            controller.UpdateRouteHint(settings.RouteHintIdleSeconds, 0f, true);
-
-            Assert.AreEqual(RouteHintPathOutcome.Planned, controller.LastRouteHintPathOutcome,
-                "точка входной двери авторского префаба доступна из комнаты");
-            Vector3 center = entry.ResolveAuthoringWorldCenter();
-            Vector2 end = controller.RouteHintWorldPath[controller.RouteHintWorldPath.Count - 1];
-            Assert.Less(Vector2.Distance(end, new Vector2(center.x, center.z)), 0.05f);
-        }
-
-        [Test]
-        public void RouteHint_QuizEntryOutsideFootprint_HasReachableDoorApproach()
-        {
-            const string prefabPath =
-                "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/Quiz/T-tonnel (2 doors exit).prefab";
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            Assert.NotNull(prefab);
-            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            _created.Add(instance);
-            RoomTemplate template = instance.GetComponent<RoomTemplate>();
-            Assert.NotNull(template);
-            DoorSocket entry = template.FindSocket("entry");
-            Assert.NotNull(entry);
-            RouteHintGeometry geometry = new();
-            List<MinimapCellSnapshot> cells = new();
-            IReadOnlyList<RoomFootprintCell> occupied = template.FootprintShape.Cells;
-            for (int i = 0; i < occupied.Count; i++)
-            {
-                cells.Add(new MinimapCellSnapshot(
-                    template.PlacementBoundsMinXMeters + occupied[i].X * LevelMinimapSession.CellSizeMeters,
-                    template.PlacementBoundsMinZMeters + occupied[i].Z * LevelMinimapSession.CellSizeMeters,
-                    LevelMinimapSession.CellSizeMeters, LevelMinimapSession.CellSizeMeters));
-            }
-
-            IReadOnlyList<RoomWallSegment2D> authoredWalls = RoomWallSegmentExtractor.Extract(template);
-            List<RouteHintWall> walls = new();
-            for (int i = 0; i < authoredWalls.Count; i++)
-            {
-                RoomWallSegment2D wall = authoredWalls[i];
-                Vector3 a = instance.transform.TransformPoint(new Vector3(wall.Ax, 0f, wall.Az));
-                Vector3 b = instance.transform.TransformPoint(new Vector3(wall.Bx, 0f, wall.Bz));
-                walls.Add(new RouteHintWall(new Vector2(a.x, a.z), new Vector2(b.x, b.z), wall.WidthMeters));
-            }
-
-            Vector3 origin = instance.transform.position;
-            geometry.AddRoom("room", new Vector2(origin.x, origin.z), instance.transform.eulerAngles.y,
-                cells, walls);
-            Vector3 center = entry.ResolveAuthoringWorldCenter();
-            Vector2 door = new(center.x, center.z);
-            geometry.AddDoor("room", "entry", "next", "west", door);
-            Vector3 interior = center - entry.ResolveAuthoringWorldOutward(instance.transform).normalized;
-            List<Vector2> path = new();
-
-            RouteHintPathOutcome outcome = PlanRouteHintPathUseCase.Execute(geometry, _ => true,
-                new Vector2(interior.x, interior.z), "room",
-                new CriticalPathDoor("room", "entry", "next", "west"), path);
-
-            Assert.AreEqual(RouteHintPathOutcome.Planned, outcome,
-                "проём авторского входа доступен из комнаты, даже если сокет выступает за контур пола");
-            Assert.Less(Vector2.Distance(path[path.Count - 1], door), 0.05f);
-        }
-
         /// <summary>
         /// Живая дверь связи — дверь From-комнаты; её выключенное состояние закрывает проход.
         /// </summary>
@@ -384,7 +250,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 
         /// <summary>
         /// Регрессия: «выключенная» To-сторона связи — это дубль, который игра прячет у КАЖДОЙ связи
-        /// (<c>LevelSpawner</c> оставляет живой только дверь From-комнаты). Прежде он делал запертым каждый
+        /// (спавнер хозяина оставляет живой только дверь From-комнаты). Прежде он делал запертым каждый
         /// проход, и подсказка не находила дороги через уже пройденную комнату. Тест на этом месте раньше
         /// утверждал обратное.
         /// </summary>
@@ -407,7 +273,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 
         /// <summary>
         /// То же на сцене, как её собирает игра: в To-комнате дубль двери выключен и спрятан
-        /// (<c>DoorState.Disabled</c> + <c>SetActive(false)</c>), живая дверь — в From-комнате. Ученик
+        /// (<c>DoorState.Disabled</c> + <c>SetActive(false)</c>), живая дверь — в From-комнате. Игрок
         /// возвращается из боковой комнаты (тупика) через такую связь — проход обязан считаться открытым.
         /// </summary>
         [Test]
@@ -448,7 +314,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         /// <summary>
-        /// Регрессия: у связи живая только дверь From-комнаты, и ученик, подошедший к ней из To-комнаты (обходом
+        /// Регрессия: у связи живая только дверь From-комнаты, и игрок, подошедший к ней из To-комнаты (обходом
         /// или после возврата из чекпоинта), прежде «раскрывал» комнату, где уже стоит, — а комната за дверью
         /// оставалась тёмной.
         /// </summary>

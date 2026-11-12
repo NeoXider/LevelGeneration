@@ -1,6 +1,6 @@
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
+namespace Neoxider.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Step 2 of generation: pick a concrete room template for a logical node, honouring tileset,

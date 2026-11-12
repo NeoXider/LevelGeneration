@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Пол под точкой ленты: луч вниз с высоты над последней принятой точкой. Возвращает, нашёл ли он пол,
@@ -15,7 +15,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
     /// ПРЕДЫДУЩЕЙ принятой точки (лестница и пандус ступенька за ступенькой), иначе высота предыдущей точки
     /// (ящик, стол, декор — лента остаётся на полу). СПУСК принимается всегда: луч бьёт в ближайшую поверхность
     /// под собой, и поверхность ниже предыдущей точки — это пол, на который сошли (со стола, с ящика, со
-    /// ступени). Раньше спуск больше шага тоже отвергался, и лента, начатая на столе под учеником, так и
+    /// ступени). Раньше спуск больше шага тоже отвергался, и лента, начатая на столе под игроком, так и
     /// висела на высоте стола через всю комнату, перелезая через стулья.
     /// </summary>
     public static class ResolveRouteHintFloorHeightUseCase

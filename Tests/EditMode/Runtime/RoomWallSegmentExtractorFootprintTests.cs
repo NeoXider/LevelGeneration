@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// The two wall geometries of a room template: <see cref="RoomWallSegmentExtractor.Extract"/> (generation

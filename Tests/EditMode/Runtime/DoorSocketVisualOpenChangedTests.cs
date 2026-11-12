@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// <see cref="DoorSocket.VisualOpenChanged"/> is what the game voices as door sounds: it must fire on

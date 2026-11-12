@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application
+namespace Neoxider.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Plain C# snapshots used by <see cref="MissionGenerator.BuildLayoutAsync"/> so worker-thread generation

@@ -1,9 +1,9 @@
 using System.Linq;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Facade;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Application.V2.Facade;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
+namespace Neoxider.LevelGeneration.Tests.Generation.V2
 {
     [Category("LevelGeneration")]
     public sealed class LayoutPacingMissionGeneratorTests

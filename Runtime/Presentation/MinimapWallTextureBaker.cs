@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Runtime top-down raster bake for wall meshes assigned on RoomTemplate.

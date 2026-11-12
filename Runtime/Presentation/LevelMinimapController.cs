@@ -1,18 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Domain.Events;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Domain.Events;
 using UnityEngine;
 
 // Кадр карты без устройств ввода (TickFrame) — типизированная граница для EditMode-тестов, без reflection.
-[assembly: InternalsVisibleTo("RedoSchool.LevelGeneration.Tests.EditMode")]
+[assembly: InternalsVisibleTo("Neoxider.LevelGeneration.Tests.EditMode")]
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Runtime minimap overlay. The compact map follows the player; the full map fits room bounds.
@@ -20,7 +20,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
     /// </summary>
     /// <remarks>
     /// <para><b>Обе карты показывают одно и то же — только пройденные комнаты.</b> Большая карта
-    /// раньше рисовала уровень целиком: открыв её, ученик сразу видел, где выход, где тупики и
+    /// раньше рисовала уровень целиком: открыв её, игрок сразу видел, где выход, где тупики и
     /// сколько ещё идти. Исследовать после этого было нечего, а разница между картами оказывалась
     /// не в честности, а в масштабе.</para>
     ///
@@ -88,16 +88,13 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         private const float FragmentMarkerMinOutlinePixels = 1.5f;
 
         /// <summary>
-        /// Как часто пересобирается список колб в комнатах. Не «один раз при Bind»: колбы спавнит
-        /// <c>CodeFragmentRuntimeController</c> ПОСЛЕ построения уровня, и снятый при связывании
+        /// Как часто пересобирается список предметов в комнатах. Не «один раз при Bind»: предметы хозяин спавнит
+        /// ПОСЛЕ построения уровня, и снятый при связывании
         /// список остался бы пустым навсегда. Но и не каждый кадр: <c>OnGUI</c> зовут по нескольку
         /// раз за кадр, и обход всех комнат на каждый event — это тот самый расход, из-за которого
         /// мини-карта уже была узким местом профайлера.
         /// </summary>
         private const float FragmentCapsuleRescanSeconds = 1f;
-
-        /// <summary>Префикс имени спавнящегося объекта колбы-капсулы («CodeFragmentCapsule_&lt;fragmentId&gt;»).</summary>
-        private const string FragmentCapsuleNamePrefix = "CodeFragmentCapsule_";
 
         [SerializeField] [Tooltip("Настройка параметра \"drawRuntimeGui\".")]
         private bool drawRuntimeGui = true;
@@ -133,13 +130,13 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         private bool simplifiedDrawing;
 
         [SerializeField]
-        [Tooltip("Показывать отметки колб-фрагментов: несобранные — заполненный кружок, собранные — "
+        [Tooltip("Показывать отметки предметов (префикс имени — в настройках): несобранные — заполненный кружок, собранные — "
                  + "пустой контур. Выключение убирает отметки с ОБЕИХ карт — и с полной (клавиша M), "
                  + "и с компактной.")]
         private bool drawFragmentMarkers = true;
 
         [SerializeField]
-        [Tooltip("Показывать отметки колб и на КОМПАКТНОЙ карте в углу, а не только на полной. "
+        [Tooltip("Показывать отметки предметов и на КОМПАКТНОЙ карте в углу, а не только на полной. "
                  + "На компактной отметка мельче и рисуется ТОЛЬКО в уже посещённых комнатах: "
                  + "миникарта не должна выдавать неисследованную часть уровня.")]
         private bool drawFragmentMarkersOnCompactMap = true;
@@ -425,7 +422,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         }
 
         /// <summary>
-        /// Большая карта рисуется прямо сейчас: открыта и ученика не держит UI. Пока открыта панель или
+        /// Большая карта рисуется прямо сейчас: открыта и игрока не держит UI. Пока открыта панель или
         /// свободная мышь, открытая карта спрятана и вернётся вместе с управлением.
         /// </summary>
         public bool IsFullMapVisible => _session.IsFullMapOpen && _playerPresence == RouteHintPresence.Exploring;
@@ -531,7 +528,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
 
         /// <summary>
         /// Один кадр карты без чтения устройств: раскрытие комнат, подсказка маршрута (пол, затем пунктир) и
-        /// клавиша большой карты. Пока ученика держит UI (<see cref="RouteHintPresence.Occupied"/>), большая
+        /// клавиша большой карты. Пока игрока держит UI (<see cref="RouteHintPresence.Occupied"/>), большая
         /// карта не рисуется и <c>M</c> её не переключает. <see cref="Update"/> подаёт сюда факты игры;
         /// EditMode-тесты — свои, без сцены и без устройства ввода.
         /// </summary>
@@ -664,7 +661,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
             DrawMap(minimapRect, false);
 
             // IMGUI рисуется поверх любой панели UI Toolkit: открытая большая карта закрыла бы собой чат,
-            // код-станцию или вопрос голубой рамкой посреди экрана. Поэтому она видна, только пока ученик
+            // UI-панель или вопрос голубой рамкой посреди экрана. Поэтому она видна, только пока игрок
             // в мире (RouteHintPresenceUseCase), и возвращается, когда панель закрыта.
             if (IsFullMapVisible)
             {
@@ -716,7 +713,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
             GUI.color = new Color(0.62f, 0.95f, 1f, 0.9f);
             GUI.Label(
                 new Rect(rect.x + 10f, rect.y + 10f, rect.width - 20f, rect.height - 20f),
-                "MINIMAP\nNo active level\nHub / debug overlay");
+                "MINIMAP\nNo active level");
             GUI.color = oldColor;
         }
 
@@ -2040,8 +2037,8 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         }
 
         /// <summary>
-        /// Отметки колб-фрагментов. Позиции берутся из сцены: колба спавнится ребёнком комнаты с
-        /// именем «CodeFragmentCapsule_&lt;fragmentId&gt;», а при сборе получает <c>SetActive(false)</c>
+        /// Отметки предметов. Позиции берутся из сцены: предмет спавнится ребёнком комнаты с именем, которое
+        /// начинается с <see cref="LevelMinimapSettings.CollectibleMarkerNamePrefix"/>, а при сборе получает <c>SetActive(false)</c>
         /// на самой себе, поэтому <c>activeSelf</c> — несобранная колба. Проверяется именно
         /// <c>activeSelf</c>, а не <c>activeInHierarchy</c>: комнату могут выключить целиком (стриминг
         /// дальних комнат), и по иерархии несобранная колба соврала бы «собрана».
@@ -2207,8 +2204,8 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
 
         /// <summary>
         /// Пересобирает список колб по комнатам не чаще <see cref="FragmentCapsuleRescanSeconds"/>.
-        /// Ищутся ПРЯМЫЕ дети комнаты: <c>CodeFragmentRuntimeController.Spawn</c> инстанцирует капсулу
-        /// ровно в <c>room.transform</c>, а обход всей иерархии комнаты (сотни трансформов на префаб)
+        /// Ищутся ПРЯМЫЕ дети комнаты с префиксом <see cref="LevelMinimapSettings.CollectibleMarkerNamePrefix"/>:
+        /// хозяин инстанцирует предмет ровно в <c>room.transform</c>, а обход всей иерархии комнаты (сотни трансформов на префаб)
         /// ради этого — лишний мусор в WebGL. Комнату, у которой число детей не изменилось с прошлого
         /// разбора, заново не разбирают: колба появляется спавном и исчезает уничтожением (оба меняют число
         /// детей), а собранная только гаснет. Так имена детей — строка на каждое чтение — читаются только при
@@ -2223,6 +2220,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
 
             _nextFragmentCapsuleScanTime = now + FragmentCapsuleRescanSeconds;
             _fragmentCapsuleCount = 0;
+            string markerPrefix = Settings.CollectibleMarkerNamePrefix;
             for (int r = 0; r < _roomInstanceList.Count; r++)
             {
                 string nodeId = _roomInstanceList[r].Key;
@@ -2264,7 +2262,8 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
                     Transform child = roomTransform.GetChild(i);
                     _fragmentCapsuleNameReadCount++;
                     if (child == null
-                        || !child.name.StartsWith(FragmentCapsuleNamePrefix, StringComparison.Ordinal))
+                        || markerPrefix.Length == 0
+                        || !child.name.StartsWith(markerPrefix, StringComparison.Ordinal))
                     {
                         continue;
                     }
@@ -2660,7 +2659,8 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
             return new[] { origin + Rotate(new Vector2(localX, localY), rotationDegrees), origin + Rotate(new Vector2(localX + width, localY), rotationDegrees), origin + Rotate(new Vector2(localX + width, localY + depth), rotationDegrees), origin + Rotate(new Vector2(localX, localY + depth), rotationDegrees) };
         }
 
-        internal Transform PlayerTransform
+        /// <summary>Игрок, за которым следит карта; не задан — ищется по тегу <c>playerTag</c>.</summary>
+        public Transform PlayerTransform
         {
             get => playerTransform;
             set => playerTransform = value;

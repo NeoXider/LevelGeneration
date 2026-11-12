@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// The planner keeps the route off the walls (owner 2026-10-16: the golden stars ran right along walls and
-    /// pillars) and no longer gives up on a student standing in a doorway (hint never appeared for 2000+ s).
+    /// pillars) and no longer gives up on a player standing in a doorway (hint never appeared for 2000+ s).
     /// </summary>
     [Category("LevelGeneration")]
     public sealed class PlanRouteHintPathClearanceTests
@@ -21,7 +21,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 
         [TestCase(false)]
         [TestCase(true)]
-        public void Plan_StudentStandingInDoorwayJustOutsideTheFloor_StartsFromTheNearestFloor(bool withClearance)
+        public void Plan_PlayerStandingInDoorwayJustOutsideTheFloor_StartsFromTheNearestFloor(bool withClearance)
         {
             RouteHintGeometry geometry = RouteHintTestLevels.EmptyHall();
             List<Vector2> path = new();
@@ -41,7 +41,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         [TestCase(10.3f, 5f, 2.1f)]
         [TestCase(10.1f, 5f, 1.2f)]
         [TestCase(10.15f, 5.8f, 2.1f)]
-        public void Plan_StudentInDoorway_AnyPositionInsideTheFrame_IsPlanned(float x, float y, float frame)
+        public void Plan_PlayerInDoorway_AnyPositionInsideTheFrame_IsPlanned(float x, float y, float frame)
         {
             RouteHintGeometry geometry = RouteHintTestLevels.EmptyHall(frame);
             List<Vector2> path = new();
@@ -53,7 +53,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Plan_StudentFarOutsideEveryRevealedFloor_IsStillNotPlanned()
+        public void Plan_PlayerFarOutsideEveryRevealedFloor_IsStillNotPlanned()
         {
             RouteHintGeometry geometry = RouteHintTestLevels.EmptyHall();
             List<Vector2> path = new();
@@ -67,12 +67,12 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Plan_StudentNextToAClosedDoor_TargetBeyondIt_PathGoesThroughTheDoor()
+        public void Plan_PlayerNextToAClosedDoor_TargetBeyondIt_PathGoesThroughTheDoor()
         {
             RouteHintGeometry geometry = RouteHintTestLevels.ThreeRoomsInARow();
             List<Vector2> path = new();
 
-            // The door is closed but not locked: it opens for the student, so planning treats it as passable.
+            // The door is closed but not locked: it opens for the player, so planning treats it as passable.
             RouteHintPathOutcome outcome = PlanRouteHintPathUseCase.Execute(geometry, _ => true,
                 new Vector2(4.7f, 2.5f), "a", RouteHintTestLevels.SecondDoor(), path, door => false);
 
@@ -82,7 +82,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Plan_StudentInTheClosedDoorway_TargetBeyondIt_PathGoesThroughTheDoor()
+        public void Plan_PlayerInTheClosedDoorway_TargetBeyondIt_PathGoesThroughTheDoor()
         {
             RouteHintGeometry geometry = RouteHintTestLevels.ThreeRoomsInARow();
             List<Vector2> path = new();
@@ -183,7 +183,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Plan_StudentJustInFrontOfTheTargetDoor_GoesStraightToItWithoutDetourBackwards()
+        public void Plan_PlayerJustInFrontOfTheTargetDoor_GoesStraightToItWithoutDetourBackwards()
         {
             RouteHintGeometry geometry = RouteHintTestLevels.EmptyHall();
             List<Vector2> path = new();
@@ -202,7 +202,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Plan_StudentStandingExactlyInTheTargetDoorway_HasAZeroLengthRoute()
+        public void Plan_PlayerStandingExactlyInTheTargetDoorway_HasAZeroLengthRoute()
         {
             RouteHintGeometry geometry = RouteHintTestLevels.EmptyHall();
             List<Vector2> path = new();
@@ -250,7 +250,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Diagnose_StudentFarFromTheFloor_NamesTheDistance()
+        public void Diagnose_PlayerFarFromTheFloor_NamesTheDistance()
         {
             RouteHintGeometry geometry = RouteHintTestLevels.EmptyHall();
 
@@ -258,7 +258,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
                 new Vector2(14f, 5f), "hall", RouteHintTestLevels.HallWestDoor(), null,
                 RouteHintPathOutcome.Unreachable);
 
-            Assert.AreEqual(RouteHintFailureCause.StudentFarFromFloor, failure.Cause);
+            Assert.AreEqual(RouteHintFailureCause.PlayerFarFromFloor, failure.Cause);
             Assert.Greater(failure.Meters, 3f);
             StringAssert.Contains("hall", failure.Describe());
         }
@@ -387,7 +387,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             return min;
         }
 
-        /// <summary>The student's own start and the exact doorway points have less room by definition.</summary>
+        /// <summary>The player's own start and the exact doorway points have less room by definition.</summary>
         private static bool IsExempt(Vector2 point, Vector2 start, Vector2[] doorways)
         {
             if (Vector2.Distance(point, start) < 1.6f)

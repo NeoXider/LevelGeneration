@@ -1,10 +1,10 @@
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Application.Pipeline;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
+namespace Neoxider.LevelGeneration.Tests.Generation
 {
     [Category("LevelGeneration")]
     public sealed class MissionGraphBuilder_VariesLayoutTests
@@ -378,7 +378,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
         [Test]
         public void MazeBranchContent_StaysOnMainPathAndAddsWrongAnswerDeadEndTunnels()
         {
-            MissionGraphBuilder builder = new(TestInteractiveRoomKinds.Standard);
+            MissionGraphBuilder builder = new(TestInteractiveRoomKinds.Standard, TestInteractiveRoomKinds.Roles);
             LevelGraph graph = builder.Build(
                 new InteractiveContentMissionConfig(
                     new InteractiveContent("Q_MAZE", TestInteractiveRoomKinds.MazeBranch, 4, 1)),
@@ -402,7 +402,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
                 RoomNode wrongTunnel = FindNode(graph, edge.ToNodeId);
                 Assert.NotNull(wrongTunnel);
                 Assert.AreEqual(RoomKind.Passage, wrongTunnel.Kind);
-                Assert.AreEqual("Toonel", wrongTunnel.PreferredRoomTemplateId);
+                Assert.AreEqual(TestInteractiveRoomKinds.Roles.PassageTemplateId, wrongTunnel.PreferredRoomTemplateId);
             }
         }
 

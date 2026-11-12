@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.LevelGeneration.Generation.Application
+namespace Neoxider.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Pure helper that computes the final pick weight for a room template given mission + tileset overrides.

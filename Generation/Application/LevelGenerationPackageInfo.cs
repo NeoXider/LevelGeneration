@@ -1,4 +1,4 @@
-﻿namespace RedoSchool.LevelGeneration
+﻿namespace Neoxider.LevelGeneration
 {
     /// <summary>
     /// Public identity for the Neoxider level-generation library boundary.
@@ -8,7 +8,7 @@
     {
         public const string PackageName = "com.neoxider.level-generation";
         public const string DisplayName = "Neoxider LevelGeneration";
-        public const string Version = "5.0.0";
+        public const string Version = "6.0.0";
         public const string Author = "Neoxider";
 
         /// <summary>

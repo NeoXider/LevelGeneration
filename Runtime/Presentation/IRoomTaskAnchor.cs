@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Место интерактивного задания комнаты. Пока задание не завершено, подсказка ведёт к нему;

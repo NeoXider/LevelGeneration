@@ -7,17 +7,7 @@
 
 Reusable библиотека генерации уровней, door/socket snapping, authoring tools и runtime minimap primitives.
 
-Пакет лежит в:
-
-```text
-Assets/ThirdParty/Neoxider/LevelGeneration
-```
-
-Проектная интеграция RedoSchool лежит отдельно:
-
-```text
-Assets/_source/Scripts/Epics/World
-```
+Пакет подключается по git-тегу (`com.neoxider.level-generation`); интеграция с конкретной игрой (контент, модули комнат, мост ввода и журнала) живёт в самой игре.
 
 ## Что находится в библиотеке
 
@@ -34,11 +24,11 @@ Assets/_source/Scripts/Epics/World
 об игре, игра передаёт сама при запуске (после `RuntimeInitializeLoadType.SubsystemRegistration`, где пакет
 сбрасывает прошлую сессию):
 
-- `MinimapGameplay.Context = <IMinimapGameplayContext>` — где ученик (`RouteHintPresence`), занята ли
+- `MinimapGameplay.Context = <IMinimapGameplayContext>` — где игрок (`RouteHintPresence`), занята ли
   клавиатура интерфейсом, строка состояния управления для диагностики подсказки маршрута;
 - `LevelGenerationRuntimeLog.InfoSink` / `WarnSink` — журнал игры; приёмник получает файл и метод вызова.
 
-Без этого карта работает автономно: ученик всегда в мире, клавиатура свободна, журнал — консоль Unity.
+Без этого карта работает автономно: игрок всегда в мире, клавиатура свободна, журнал — консоль Unity.
 
 Раскладку контента в редакторе проект задаёт через `LevelGenerationProjectPaths` (обычно из `[InitializeOnLoad]`
 своей редакторной сборки): `RoomPrefabRoots` — где редакторный `RoomDatabase` ищет префабы комнат (по умолчанию
@@ -54,22 +44,22 @@ Assets/_source/Scripts/Epics/World
 ## Что не должно попадать в библиотеку
 
 - MissionMap, Quiz, Cheats, Rewards, CoreAI/VContainer glue.
-- SciFiAcademy content JSON/assets.
-- RedoSchool gameplay modules и конкретные room rewards.
+- Контент и ассеты конкретной игры (комнаты, id шаблонов, префабы).
+- Gameplay-модули и награды комнат конкретной игры.
 - Правила конкретной миссии, которые зависят от учебного контента.
 
 ## Assemblies
 
-- `RedoSchool.LevelGeneration.Domain` - pure C# domain models/enums/events, `noEngineReferences=true`.
-- `RedoSchool.LevelGeneration` - pure C# generator application services, `noEngineReferences=true`.
-- `RedoSchool.LevelGeneration.Unity` - Unity prefab descriptors, ScriptableObject data и room-template authoring components.
-- `RedoSchool.LevelGeneration.Runtime.Domain` - pure C# runtime-события комнат, дверей и endpoint, `noEngineReferences=true`.
-- `RedoSchool.LevelGeneration.Runtime` - reusable runtime minimap, room instance, room-enter/endpoint events и transition helpers. Сборки игры не нужны: ввод и журнал подключает потребитель (раздел «Подключение к игре»).
-- `RedoSchool.LevelGeneration.Editor` - reusable editor tools для authoring, door snapping и compatibility checks.
+- `Neoxider.LevelGeneration.Domain` - pure C# domain models/enums/events, `noEngineReferences=true`.
+- `Neoxider.LevelGeneration` - pure C# generator application services, `noEngineReferences=true`.
+- `Neoxider.LevelGeneration.Unity` - Unity prefab descriptors, ScriptableObject data и room-template authoring components.
+- `Neoxider.LevelGeneration.Runtime.Domain` - pure C# runtime-события комнат, дверей и endpoint, `noEngineReferences=true`.
+- `Neoxider.LevelGeneration.Runtime` - reusable runtime minimap, room instance, room-enter/endpoint events и transition helpers. Сборки игры не нужны: ввод и журнал подключает потребитель (раздел «Подключение к игре»).
+- `Neoxider.LevelGeneration.Editor` - reusable editor tools для authoring, door snapping и compatibility checks.
 
 ## Текущий production path
 
-RedoSchool runtime/preview вызывает `MissionGenerator`. Если в `MissionConfigSO` включен Layout Pacing V2, генератор строит pacing graph, выбирает комнаты, размещает их через socket snapping, соединяет двери и возвращает layout diagnostics. V1 graph builder остается rollback path.
+Рантайм и превью игры вызывают `MissionGenerator`. Если в `MissionConfigSO` включен Layout Pacing V2, генератор строит pacing graph, выбирает комнаты, размещает их через socket snapping, соединяет двери и возвращает layout diagnostics. V1 graph builder остается rollback path.
 
 В pacing mode старые `TotalRoomsRange`/main/branch ranges являются legacy/cap data, а не exact target-count. Темп задается через Layout Pacing config и optional JSON override.
 
@@ -77,9 +67,9 @@ RedoSchool runtime/preview вызывает `MissionGenerator`. Если в `Mis
 
 `LevelMinimapController` остаётся IMGUI-оверлеем для совместимости с текущим runtime HUD. Обе карты —
 угловая и большая — показывают только пройденные комнаты. Это единый no-spoiler-контракт для всего
-содержимого: рисуются лишь связи между уже раскрытыми комнатами, а маркер выхода и колбы-фрагменты
+содержимого: рисуются лишь связи между уже раскрытыми комнатами, а маркер выхода и предметы
 появляются только после раскрытия своей комнаты. Большая карта раньше показывала уровень целиком, и
-ученик сразу видел выход, тупики и длину оставшегося пути; теперь она отличается от угловой тем,
+игрок сразу видел выход, тупики и длину оставшегося пути; теперь она отличается от угловой тем,
 что вписывает весь уже пройденный маршрут с полями (`FullMapFitMarginMeters`) и центрируется на нём,
 но не раскрывает будущий путь. Мелкую карту кламп не раздувает сильнее утроенного масштаба угловой
 (`FullMapMaxZoomVsCompact`).
@@ -89,12 +79,12 @@ RedoSchool runtime/preview вызывает `MissionGenerator`. Если в `Mis
 Публичные `LevelMinimapSession.GetAllRooms()` и `GetAllConnections()` возвращают сырой снимок
 сгенерированного layout для диагностики и других непредставленческих потребителей. Они не являются
 источником отрисовки: обе карты получают комнаты и связи через `GetVisibleRooms()` и
-`GetVisibleConnections()`. Иначе один забытый слой — коридор, выход или колба — снова выдал бы скрытую
+`GetVisibleConnections()`. Иначе один забытый слой — коридор, выход или предмет — снова выдал бы скрытую
 комнату.
 
 Комнаты, связи, стены и door markers кэшируются в отдельных `RenderTexture` для compact и full-map
 режимов. В обычном `OnGUI` готовая геометрия выводится одним `GUI.DrawTexture`, а поверх неё живыми
-слоями рисуются маркер игрока, доступный маркер выхода и колбы-фрагменты.
+слоями рисуются маркер игрока, доступный маркер выхода и предметы.
 
 Кэш перестраивается при `Bind(...)`, `RoomEnteredEvent`, раскрытии комнаты по открытой двери и один раз
 по окончании её проявления, восстановлении checkpoint, изменении размера панели, проекционной позы игрока или настроек отрисовки (`SimplifiedDrawing`, door markers, цвета/alpha,
@@ -145,7 +135,7 @@ trigger после загрузки нельзя: иначе компактна�
 
 ### Подсказка маршрута
 
-Если ученик `RouteHintIdleSeconds` (60 с) не продвигается к выходу, путь сначала проявляется светящейся
+Если игрок `RouteHintIdleSeconds` (60 с) не продвигается к выходу, путь сначала проявляется светящейся
 цепочкой звёздочек над полом уровня (см. «Путь подсказки на полу»), а затем обе карты одновременно
 показывают бегущий пунктир (или линию с бликом — `RouteHintStyle`) от игрока к двери следующей
 комнаты критического пути и пульсирующий маркер у этой двери.
@@ -164,19 +154,19 @@ trigger после загрузки нельзя: иначе компактна�
   старый список раскрытых комнат не означает посещение и игнорируется;
   перепривязка того же живого уровня сохраняет посещённое.
   Решение принимает `DecideRouteHintUseCase` (без состояния), состояние и таймер держит
-  `LevelRouteHintSession`. Таймер идёт по игровому времени и только пока ученик в мире —
-  `IMinimapGameplayContext.Presence` от игры (в RedoSchool — `RouteHintPresenceUseCase` по полному набору
+  `LevelRouteHintSession`. Таймер идёт по игровому времени и только пока игрок в мире —
+  `IMinimapGameplayContext.Presence` от игры (у неё — решение по полному набору
   фактов ввода: UI-лок, захват клавиатуры, поле ввода, выключенный gaze-режим, замороженный контроллер или
   выключенное движение — пауза, и подсказка на это время гаснет; решение не зависит от порядка проверок
   первого блокера, где видимый курсор заслонял бы заморозку). Стартует при `Bind` и при восстановлении чекпоинта.
   Настенный вопрос развилки управление не забирает — там таймер идёт.
   **WebGL (Demo b332, план b333 §2a):** после закрытия UI, экрана загрузки или возврата фокуса FPS-мост
   восстанавливает gaze, но взгляд выключен и курсор виден, пока браузер не подтвердит pointer lock по
-  жесту игрока. Раньше таймер ждал это подтверждение, и ученик, который просто стоял, подсказки не получал
+  жесту игрока. Раньше таймер ждал это подтверждение, и игрок, который просто стоял, подсказки не получал
   никогда (в редакторе захват мгновенный, поэтому дефект был виден только в браузере). Ожидание браузера
   (видимый курсор и выключенный взгляд при включённом gaze, без заявок и с ходящим контроллером) — не
   занятость интерфейсом: таймер идёт. Регрессии: `RouteHintPresenceUseCaseTests` (Unit) и
-  `WebGlRouteHintControlReturnPlayModeTests` (настоящий `Update` миникарты: возврат управления, вход в новую
+  PlayMode-тест игры (настоящий `Update` миникарты: возврат управления, вход в новую
   комнату и появление пунктира без жеста браузеру). Подтвердить на сессии владельца — по логу WebGL-билда.
 - **Незавершённое интерактивное задание** — если в текущей комнате пути есть активный
   `IRoomTaskAnchor` с `IsTaskCompleted == false`, цель находится на доступном полу рядом с панелью.
@@ -209,7 +199,7 @@ trigger после загрузки нельзя: иначе компактна�
   теми же стенами. После недостижимой цели повторная попытка откладывается минимум на 2 секунды,
   чтобы поиск не перегружал WebGL. Если первый отрезок пересёк стену, линия скрывается.
 - **Отрисовка** — `LevelMinimapController.RouteHint.cs`, живым слоем поверх кэша геометрии (под
-  маркером выхода, колбами и игроком), только на `Repaint`, с общей для всех живых слоёв проекцией.
+  маркером выхода, предметами и игроком), только на `Repaint`, с общей для всех живых слоёв проекцией.
   Точки — один `GUI.DrawTexture` на точку из процедурного спрайта, в который запечены заливка и кант
   (перезапекается при смене цветов в настройках); не больше 160 точек на карту, невидимые отсекаются
   по пересечению с рамкой. Появление: плавная прозрачность и «прорисовка» от игрока к цели;
@@ -219,7 +209,7 @@ trigger после загрузки нельзя: иначе компактна�
   Поэтому подсказка переиспользует уже существующие примитивы контроллера (`DrawLine`, клип по карточке).
   Нет GL-шейдера `Hidden/Internal-Colored` или `SetPass` отказал — стены карты пустые, а в лог уходит одно
   предупреждение вместо исключения в каждом `OnGUI` (раньше такое исключение опустошало обе карты).
-- **Большая карта (`M`)** рисуется только пока ученик в мире (`IsFullMapVisible`): IMGUI лежит поверх любой
+- **Большая карта (`M`)** рисуется только пока игрок в мире (`IsFullMapVisible`): IMGUI лежит поверх любой
   панели UI Toolkit, и открытая карта иначе закрывала бы чат, код-станцию или вопрос голубой рамкой посреди
    экрана. На время панелей открытая карта прячется и возвращается вместе с управлением;
   `M` в это время не действует. Открытие читом при открытой чит-панели покажет карту после её закрытия.
@@ -234,17 +224,17 @@ trigger после загрузки нельзя: иначе компактна�
 - **Диагностика в WebGL-сборке** (консоль браузера / player log). Одна строка на смену состояния:
   `Route hint state changed: idle=… presence=… first=… outcome=… planned=… path=… floor=… alpha=…
   liveStartBlocked=… fullMap=… focused=… cursor=… room=…`. Что искать, если пунктира нет:
-   `presence=Occupied` и `first=` — какая заявка или состояние держит ученика (раньше в WebGL здесь стоял
+   `presence=Occupied` и `first=` — какая заявка или состояние держит игрока (раньше в WebGL здесь стоял
    `CursorVisible`/`LookDisabled`); `outcome=Waiting` при растущем `idle` — подсказка ещё не должна быть;
    `Route hint idle timer restarted (…)` — только прогресс: вход дальше по пути (`route progress in …`)
    или выполненное задание цели (`target task in … completed`); частые сбросы от боковых комнат и дверей
    были дефектом и убраны; `planned=False` и
   `Route hint unavailable: <исход>, … cause: <причина>` — прокладка пути не удалась, и причина названа
-   (`PlanRouteHintPathUseCase.Diagnose`: ученик далеко от пола, нет цепочки открытых дверей, ученик зажат
+   (`PlanRouteHintPathUseCase.Diagnose`: игрок далеко от пола, нет цепочки открытых дверей, игрок зажат
    стенами, стены внутри комнаты не оставляют пути); строка пишется один раз на смену причины, а не на каждую
    попытку, и та же `cause=` стоит в `RouteHintDiagnosticText` чит-панели; `trailDev=` — на сколько метров
-   ученик отошёл от общей линии; `liveStartBlocked` теперь всегда `False`: начало линии не зависит от того,
-   где стоит ученик; `floor=FloorRevealing` без перехода в
+   игрок отошёл от общей линии; `liveStartBlocked` теперь всегда `False`: начало линии не зависит от того,
+   где стоит игрок; `floor=FloorRevealing` без перехода в
    `FloorHolding` — лента на полу не доиграла; терминального угасания ленты по времени нет: пока подсказка
    нужна, фаза остаётся `FloorHolding`; `Route hint floor ribbon: <причина>` — почему ленты нет
    (нет префаба, нет материала, вырожденный путь, слишком сложный путь, путь не готов — повтор),
@@ -261,11 +251,7 @@ trigger после загрузки нельзя: иначе компактна�
 пунктир миникарты. Вид уточнён владельцем 2026-10-16 (план b333 §2b): «золотой след» Genshin,
 маленькие светящиеся четырёхлучевые искры, без стрелок и сплошной полосы.
 
-Префаб `Assets/_source/Prefabs/RouteHint/RouteHintFloorView.prefab` назначен в
-`Resources/Minimap/LevelMinimapSettings.asset`. Материал `RouteHintSparkles.mat` использует готовую
-`Epic Toon FX/Textures/sparkle2.png`: мягкая четырёхлучевая звезда, новая текстура не нужна.
-Подложка и свечение пола убраны полностью: отдельные искры оставляют видимым рисунок пола.
-Страж `RouteHintFloorPrefabGuardTests` проверяет поставку материала и текстуры звёзд;
+Префаб цепочки (`RouteHintFloorView` с ParticleSystem и материалом звезды) пакет не поставляет: его назначает игра в своих настройках карты (`LevelMinimapController.SetSettings`); в ассете пакета поле пустое. Подложка и свечение пола убраны полностью: отдельные искры оставляют видимым рисунок пола.
 `RouteHintFloorViewTests` и PlayMode проверяют отсутствие полосы.
 
 - **Один путь на двоих.** Звёзды на полу и пунктир миникарты рисуют ОДНУ линию — `RouteHintTrail`
@@ -305,17 +291,17 @@ trigger после загрузки нельзя: иначе компактна�
   поведение) продолжает его прямо по направлению подхода в следующую комнату. Отрезок обрезается по полу и
   стенам той комнаты (шаги 1 / 0,75 / 0,5 / 0,3 длины, не короче 0,5 м), а при отсутствии места путь просто
   кончается у двери. Раскрытая карта не выдаётся: отдаётся только короткий прямой отрезок, не раскладка комнаты.
-- **Линия плывёт, а не прыгает.** Когда ученик ушёл от линии дальше `routeHintReplanDeviationMeters` и путь
+- **Линия плывёт, а не прыгает.** Когда игрок ушёл от линии дальше `routeHintReplanDeviationMeters` и путь
   построился заново (мир тот же), `RouteHintTrail.AssignBlended` оставляет на экране старую линию и за
   `routeHintReplanBlendSeconds` (0,35 с) перетекает её в новую (`AdvanceBlend` каждый кадр; точки сопоставляются
   по остатку пути до общей двери). Другой маршрут (длина отличается больше чем на 2,5 м), первый путь, смена
   цели, раскрытие комнат и заданий — прежняя мгновенная замена.
-- **Подсказка держится, пока ученик идёт по ней.** Ходьба к цели больше не гасит ленту
+- **Подсказка держится, пока игрок идёт по ней.** Ходьба к цели больше не гасит ленту
   (`routeHintFloorApproachMeters` = 0, `RouteHintRevealTiming.ApproachMeters` по умолчанию 0). Подсказка уходит,
   только когда решение о ней снято: прогресс (вход в комнату критического пути дальше всех посещённых или
   выполнение задания цели — `DecideRouteHintProgressUseCase`, тот же прогресс, что сбрасывает таймер простоя)
   или занятость интерфейсом. Боковая комната и неверная ветка не прогресс: подсказка остаётся, путь
-  перепланируется от ученика.
+  перепланируется от игрока.
 - **Высота пола** — луч вниз (`Runtime/Infrastructure/RouteHintFloorRaycastProbe`, адаптер физики: слои
   `routeHintFloorLayers`, мимо триггеров и коллайдеров игрока; до 16 попаданий в буфере, сортировка по
   расстоянию, при заполненном буфере — повтор через `RaycastAll`, чтобы пол не потерялся) с
@@ -347,7 +333,7 @@ trigger после загрузки нельзя: иначе компактна�
   один материал, один проход шейдера, до 400 билбордов; время кадра ещё не измерено. Позиции считаются по
   scaled clock в заранее выделенном массиве и передаются через `SetParticles`; в `Render` нет выделений
   памяти. Автономная симуляция выключена (`simulationSpeed=0`, `useUnscaledTime=false`). VFX Graph не
-  используется. Шейдер `RedoSchool/LevelGeneration/RouteHintFloorStars` хранится по историческому пути
+  используется. Шейдер `Neoxider/LevelGeneration/RouteHintFloorStars` хранится по историческому пути
   `Runtime/Shaders/RouteHintFloorRibbon.shader`, сохраняя GUID; в нём только текстура звезды, цвет
   материала и цвет частицы. Старый MeshRenderer префаба выключен.
 - **Порядок** — `DecideRouteHintRevealUseCase` (состояние — `RouteHintRevealTimeline`): лента проявляется за
@@ -370,12 +356,6 @@ trigger после загрузки нельзя: иначе компактна�
 Все параметры — `LevelMinimapSettings` (`Runtime/Resources/Minimap/LevelMinimapSettings.asset`,
 меню `Create → Neoxider → LevelGeneration → Minimap Settings`); поле `settings` у контроллера
 позволяет подменить ассет явно, без ассета действуют те же значения по умолчанию.
-
-## Документация интеграции
-
-- RedoSchool integration README: `Assets/_source/Scripts/Epics/World/README.md`
-- Level designer guide: `Assets/_source/Scripts/Epics/World/LEVEL_DESIGNER_GUIDE.md`
-- Game design rules: `Assets/_source/Scripts/Epics/World/GAME_DESIGN_RULES.md`
 
 Большая карта проецирует маркер игрока и безопасное живое начало маршрута из мировых координат через
 общую проекцию комнат. На компактной карте эта же проекция сохраняет игрока в центре. Страж пола

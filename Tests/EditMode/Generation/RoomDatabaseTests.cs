@@ -2,13 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Infrastructure;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Infrastructure;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
+namespace Neoxider.LevelGeneration.Tests.Generation
 {
     [Category("LevelGeneration")]
     public sealed class RoomDatabaseTests
@@ -94,7 +94,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
             public IReadOnlyList<string> Tags => Array.Empty<string>();
             public int EstimatedDurationSeconds => 60;
             public IReadOnlyList<IDoorSocketDescriptor> Doors => Array.Empty<IDoorSocketDescriptor>();
-            public RedoSchool.LevelGeneration.Generation.Domain.Models.RoomFootprint Footprint => new(1, 1);
+            public Neoxider.LevelGeneration.Generation.Domain.Models.RoomFootprint Footprint => new(1, 1);
             public string ModuleAssetId => null;
         }
     }

@@ -2,15 +2,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Placement;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Selection;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Application.Pipeline;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Application.V2.Placement;
+using Neoxider.LevelGeneration.Generation.Application.V2.Selection;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Tests.Generation;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
+namespace Neoxider.LevelGeneration.Tests.Generation.V2
 {
     [Category("LevelGeneration")]
     public sealed class V2SelectionAndPlacementTests
@@ -375,7 +376,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
         }
 
         private sealed class
-            FakeRoomPlacer : RedoSchool.LevelGeneration.Generation.Application.Pipeline.IRoomPlacer
+            FakeRoomPlacer : Neoxider.LevelGeneration.Generation.Application.Pipeline.IRoomPlacer
         {
             public bool WasCalled { get; private set; }
 
@@ -392,6 +393,19 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
                     "n1",
                     new string[0]);
             }
+        }
+
+        [TestCase("quiz_wrong_terminal", "dead_end_1door")]
+        [TestCase("quiz_correct_tunnel", "passage_2doors")]
+        [TestCase("quiz_correct_buffer", "passage_2doors")]
+        [TestCase("filler", null)]
+        public void ToRoomNode_PinsMazeBranchNodesToTheHostRoles(string source, string expected)
+        {
+            PacingGraphNode node = new("n", RoomKind.Passage, isOnMainPath: false, source: source);
+
+            Assert.AreEqual(expected, V2RoomSelectionAdapter.ToRoomNode(node, TestInteractiveRoomKinds.Roles).PreferredRoomTemplateId);
+            Assert.IsNull(V2RoomSelectionAdapter.ToRoomNode(node).PreferredRoomTemplateId,
+                "Without roles any compatible template may take the node.");
         }
     }
 }

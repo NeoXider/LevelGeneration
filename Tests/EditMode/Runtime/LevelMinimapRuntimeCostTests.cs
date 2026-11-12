@@ -2,18 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Domain.Events;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Domain.Events;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Стражи цены кадра мини-карты (WebGL, один поток, чувствительный к мусору GC): работа, которая раньше шла
@@ -109,11 +109,14 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         [Test]
         public void FragmentCapsules_ChildNamesAreReadOnlyWhenARoomChanges()
         {
-            LevelMinimapController controller = CreateController(out _);
+            LevelMinimapController controller = CreateController(out LevelMinimapSettings settings);
+            UnityEditor.SerializedObject serialized = new(settings);
+            serialized.FindProperty("collectibleMarkerNamePrefix").stringValue = "Collectible_";
+            serialized.ApplyModifiedPropertiesWithoutUndo();
             GameObject roomGo = Create("Room_n_start");
             new GameObject("Decor_A").transform.SetParent(roomGo.transform, false);
             new GameObject("Decor_B").transform.SetParent(roomGo.transform, false);
-            new GameObject("CodeFragmentCapsule_a").transform.SetParent(roomGo.transform, false);
+            new GameObject("Collectible_a").transform.SetParent(roomGo.transform, false);
             RoomInstance room = roomGo.AddComponent<RoomInstance>();
             room.Configure("n_start", RoomKind.Start, roomGo.AddComponent<RoomTemplate>());
             controller.Bind(CreateLayout(), null, new Dictionary<string, RoomInstance> { ["n_start"] = room });
@@ -128,7 +131,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             Assert.AreEqual(reads, controller.FragmentCapsuleNameReadCount,
                 "The room did not change: its children's names (a new string each) are not read again.");
 
-            GameObject spawned = new("CodeFragmentCapsule_b");
+            GameObject spawned = new("Collectible_b");
             spawned.transform.SetParent(roomGo.transform, false);
             controller.RefreshFragmentCapsuleCache(4.5f);
             Assert.AreEqual(2, controller.FragmentCapsuleCount, "A spawned capsule is picked up on the next scan.");

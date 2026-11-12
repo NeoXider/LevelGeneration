@@ -1,22 +1,22 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Application;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
-    /// Карта не показывает того, куда ученик ещё не дошёл.
+    /// Карта не показывает того, куда игрок ещё не дошёл.
     /// </summary>
     /// <remarks>
-    /// <para>Большая карта рисовала уровень целиком: открыв её, ученик сразу видел, где выход, где
+    /// <para>Большая карта рисовала уровень целиком: открыв её, игрок сразу видел, где выход, где
     /// тупики и сколько ещё идти. Исследовать после этого было нечего, а разница между большой и
     /// угловой картой оказывалась не в честности, а в масштабе. Владелец: «большая карта как и
     /// маленькая должна показывать только пройденные комнаты, чтобы не спойлерить, что дальше».</para>

@@ -1,12 +1,12 @@
 using System;
 using System.Linq;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Facade;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Planning;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Application.V2.Facade;
+using Neoxider.LevelGeneration.Generation.Application.V2.Planning;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
+namespace Neoxider.LevelGeneration.Tests.Generation.V2
 {
     /// <summary>
     ///     Coverage for audit finding C3: the runtime V2 path

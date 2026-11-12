@@ -2,19 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     [Category("LevelGeneration")]
     public sealed class MinimapWallTextureBakerTests
     {
-        private static readonly string[] SciFiAcademyProceduralPrefabPaths = { "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/StartToonel.prefab", "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/Toonel.prefab", "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/L-tonnel.prefab", "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/Quiz/Y-tonnel (2 doors exit).prefab", "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/Vetv/Room_Door2_In0_Out45_Blind1_OctHub.prefab", "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/Vetv/Plus Tonnel (3 doors exit).prefab", "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/Quiz/T-tonnel (2 doors exit).prefab", "Assets/_source/Prefabs/Rooms/SciFiAcademy/RoomPrefabs/EndToonel.prefab" };
-
         private readonly List<Object> _created = new();
 
         [TearDown]
@@ -133,37 +131,6 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
             finally
             {
                 baked?.Dispose();
-            }
-        }
-
-        [Test]
-        [Explicit("Heavy: loads 8 SciFi room prefabs with full authoring components.")]
-        public void Bake_SciFiAcademyProceduralPrefabs_ProduceWallTextures()
-        {
-            for (int i = 0; i < SciFiAcademyProceduralPrefabPaths.Length; i++)
-            {
-                string path = SciFiAcademyProceduralPrefabPaths[i];
-                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                Assert.NotNull(prefab, path);
-
-                GameObject instance = Track((GameObject)PrefabUtility.InstantiatePrefab(prefab));
-                Assert.NotNull(instance, path);
-                Assert.IsTrue(instance.TryGetComponent<RoomTemplate>(out RoomTemplate template), path);
-                Assert.IsTrue(template.UseMinimapWallGeometry, $"{template.RoomId} must enable minimap wall bake.");
-                Assert.NotNull(template.MinimapWallParent, $"{template.RoomId} must assign Minimap Wall Parent.");
-
-                MinimapWallTexture baked = MinimapWallTextureBaker.Bake(template);
-                try
-                {
-                    Assert.IsNotNull(baked, $"{template.RoomId} wall bake must produce wall geometry.");
-                    Assert.IsNotNull(baked.Segments, $"{template.RoomId} wall bake segments must not be null.");
-                    Assert.Greater(baked.Segments.Count, 0,
-                        $"{template.RoomId} wall bake must contain visible wall segments.");
-                }
-                finally
-                {
-                    baked?.Dispose();
-                }
             }
         }
 

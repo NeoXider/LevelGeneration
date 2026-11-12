@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Domain.Enums
+namespace Neoxider.LevelGeneration.Generation.Domain.Enums
 {
     /// <summary>
     /// Runtime state of a door socket after generation or interaction.

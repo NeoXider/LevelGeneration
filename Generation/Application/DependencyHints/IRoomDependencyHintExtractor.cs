@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.DependencyHints
+namespace Neoxider.LevelGeneration.Generation.Application.DependencyHints
 {
     /// <summary>
     /// Extracts generator constraints from room-template metadata, for example KeyPickup -> DoorUnlock.

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Плоская (XZ) геометрия уровня для подсказки маршрута: пол каждой комнаты в виде ячеек сетки и
@@ -153,7 +153,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
-        /// Nearest floor of a room the filter allows. A student standing in a doorway or door frame is a few
+        /// Nearest floor of a room the filter allows. A player standing in a doorway or door frame is a few
         /// decimetres outside the floor cells of both neighbouring rooms; the route has to start from the
         /// floor next to him rather than give up. <paramref name="preferredNodeId"/> wins near-ties.
         /// </summary>
@@ -228,7 +228,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         /// <summary>
         /// Сторона контура препятствия на полу (<see cref="RouteHintObstacle"/>), а не стена. Пересекать её
         /// нельзя так же, как стену; отличие одно — последний, «узкий» поиск пути держится от предмета на
-        /// расстоянии плеча ученика, а не на запасе стены, иначе ряды парт оставались бы без маршрута.
+        /// расстоянии плеча игрока, а не на запасе стены, иначе ряды парт оставались бы без маршрута.
         /// </summary>
         public readonly bool IsObstacleEdge;
 
@@ -248,7 +248,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
     /// <summary>
     /// Сплошное препятствие на полу комнаты в плане (мебель, реквизит, пульт): выпуклый четырёхугольник в мире XZ,
     /// углы по кругу. Путь подсказки не пересекает его контур и держится от него на том же запасе, что и от стен;
-    /// точка внутри (ученик стоит на столе) — не пол, а место, с которого сначала надо сойти.
+    /// точка внутри (игрок стоит на столе) — не пол, а место, с которого сначала надо сойти.
     /// </summary>
     public readonly struct RouteHintObstacle
     {
@@ -356,7 +356,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         /// <summary>Пол, ковёр, порожек: верх не выше шага — по нему ходят.</summary>
         Walkable = 1,
 
-        /// <summary>Висит выше роста ученика (светильник, балка): под ним проходят.</summary>
+        /// <summary>Висит выше роста игрока (светильник, балка): под ним проходят.</summary>
         Overhead = 2,
 
         /// <summary>

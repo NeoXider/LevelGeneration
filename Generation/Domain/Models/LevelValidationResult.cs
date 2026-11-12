@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.LevelGeneration.Generation.Domain.Models
+namespace Neoxider.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Aggregated outcome of <c>ILevelValidator</c>. Layout is valid iff there are no <see cref="LevelValidationSeverity.Error"/> issues.

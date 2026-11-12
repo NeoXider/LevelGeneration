@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Domain.Enums
+namespace Neoxider.LevelGeneration.Generation.Domain.Enums
 {
     /// <summary>
     /// Toggle between full procedural, strict scripted and designer-authored hybrid generation.

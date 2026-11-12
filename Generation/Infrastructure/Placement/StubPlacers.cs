@@ -1,7 +1,7 @@
-using RedoSchool.LevelGeneration.Generation.Application.Placement;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Application.Placement;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Infrastructure.Placement
+namespace Neoxider.LevelGeneration.Generation.Infrastructure.Placement
 {
     /// <summary>MVP placer stubs — placement happens via room-prefab anchors, no extra logic for v1.</summary>
     public sealed class StubObjectivePlacer : IObjectivePlacer

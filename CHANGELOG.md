@@ -1,5 +1,40 @@
 # Neoxider LevelGeneration Changelog
 
+## 6.0.0 — 2026-11-12 breaking: пакет без имён и контента игры
+
+Пакет больше не знает игру, из которой был вынесен: ни в именах, ни в коде, ни в ассетах, ни в тестах.
+
+**Миграция потребителя** (имена механически; генерация совпадает с прежней, если передать роли шаблонов — см. ниже):
+
+- **Сборки и пространства имён** — `Neoxider.LevelGeneration.*` вместо прежнего префикса игры (сборки `Neoxider.LevelGeneration`,
+  `.Domain`, `.Unity`, `.Runtime`, `.Runtime.Domain`, `.Editor`, тесты `.Tests.EditMode` с пространством
+  `Neoxider.LevelGeneration.Tests.*`). Заменить префикс в `using`, полных именах типов и ссылках asmdef. У
+  `…Runtime.Domain` исправлен и `rootNamespace` (раньше указывал на эпик игры).
+- **Шейдер** — `Neoxider/LevelGeneration/RouteHintFloorStars` (`RouteHintFloorView.StarsShaderName`); материалы держат
+  его по GUID и не ломаются, `Shader.Find` по старому имени — да. Ключ настроек редактора гизмо следа —
+  `Neoxider.LevelGeneration.RoomAuthoring.DrawFootprintGizmos`.
+- **Роли шаблонов вместо зашитых id комнат.** Генератор подставлял сам шаблоны проходов, развилок и тупиков неверных
+  ответов по id тайлсета игры. Теперь роли называет хозяин — `RoomTemplateRoles(passage, branchHub, answerDeadEnd)`,
+  аргумент конструкторов `MissionGraphBuilder`, `MissionGenerator` и `V2RoomSelectionAdapter`; по умолчанию
+  `RoomTemplateRoles.None` — любой совместимый шаблон. Тайлсету, у которого туннели ответов обязаны совпадать по
+  семейству дверей с комнатой лабиринта, роли нужно передать, иначе ответвления не состыкуются.
+- **Префаб подсказки на полу — у игры.** Ассет пакета `Resources/Minimap/LevelMinimapSettings` больше не ссылается на
+  префаб вне пакета (`RouteHintFloorViewPrefab` пуст); хозяин подставляет свои настройки —
+  `LevelMinimapController.SetSettings(...)` (стал публичным). Публичными стали и `PlayerTransform` (игрок, за которым
+  следит карта) и `UpdateRouteHint(...)` (шаг подсказки для собственного цикла хозяина).
+- **Словарь API:** `LevelGenerationCompletedEvent.LessonId` → `ContextId` (параметр `contextId`) — идентификатор
+  контекста хозяина, ради которого построен уровень; `RouteHintFailureCause.StudentFarFromFloor` / `StudentWalledIn`
+  → `PlayerFarFromFloor` / `PlayerWalledIn`; `RouteHintReplanReason.StudentLeftTrail` → `PlayerLeftTrail`.
+- **Тесты, которым нужен контент игры** (настоящие комнаты, префаб подсказки, слои пола), переехали в игру; тесты пакета
+  работают на своих синтетических данных с нейтральными id шаблонов. Страж «чистых» слоёв перешёл с запрета на
+  белый список (`using System…` и слои генерации пакета).
+- **Отметки предметов на карте** — по префиксу имени из настроек (`LevelMinimapSettings.CollectibleMarkerNamePrefix`),
+  а не по зашитому имени объекта игры; пусто (по умолчанию) — отметок нет.
+- **Подсказка на полу в ассете пакета выключена** (`routeHintFloorEnabled: 0`): префаба в пакете нет, и хозяин без
+  своих настроек не получает предупреждение на каждом уровне; пунктир миникарты работает как прежде.
+- `PacingSocketPlacementRunner` принимает те же `RoomTemplateRoles`, что генератор.
+- Доки (`README`, `API`, `PACKAGE`, `Docs~`) описывают игру-хозяина в общем виде, без путей и имён конкретного проекта.
+
 ## 5.0.0 — 2026-11-11 breaking: пространства имён `RedoSchool.LevelGeneration.*`
 
 **Ломающее изменение для кода, который ссылается на пакет:** корень пространств имён переименован с

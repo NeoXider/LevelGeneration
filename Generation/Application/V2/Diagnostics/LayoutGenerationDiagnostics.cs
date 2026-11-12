@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.V2.Diagnostics
+namespace Neoxider.LevelGeneration.Generation.Application.V2.Diagnostics
 {
     public sealed class LayoutGenerationDiagnostics
     {

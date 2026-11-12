@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
-    /// <summary>Where the student is relative to the shown trail after one <see cref="RouteHintTrail.Follow"/>.</summary>
+    /// <summary>Where the player is relative to the shown trail after one <see cref="RouteHintTrail.Follow"/>.</summary>
     public readonly struct RouteHintTrailFollow
     {
         public RouteHintTrailFollow(bool hasTrail, float deviationMeters, bool onTrail)
@@ -16,10 +16,10 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
 
         public bool HasTrail { get; }
 
-        /// <summary>Distance from the student to the nearest point of the trail, metres.</summary>
+        /// <summary>Distance from the player to the nearest point of the trail, metres.</summary>
         public float DeviationMeters { get; }
 
-        /// <summary>The student is close enough to the trail for it to follow him.</summary>
+        /// <summary>The player is close enough to the trail for it to follow him.</summary>
         public bool OnTrail { get; }
     }
 
@@ -27,7 +27,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
     /// THE route-hint polyline: one smoothed list of world-XZ points that both the floor stars and the minimap
     /// dashes draw, so they can never disagree. It is replaced only at a re-plan (<see cref="Revision"/> grows);
     /// between re-plans only the visible start moves, along the same points: the trail begins
-    /// <c>startOffset</c> metres ahead of the student's projection on it. Per-point wall clearance travels
+    /// <c>startOffset</c> metres ahead of the player's projection on it. Per-point wall clearance travels
     /// with the points, so the star stream can keep its scatter off the walls.
     /// Pure data and arithmetic: no scene, no allocation after the lists reach their working size.
     /// </summary>
@@ -118,7 +118,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         /// <summary>Metres of trail left to draw, from the head to the target.</summary>
         public float RemainingMeters => Mathf.Max(0f, LengthMeters - HeadDistance);
 
-        /// <summary>The student's own position along the trail, metres.</summary>
+        /// <summary>The player's own position along the trail, metres.</summary>
         public float ProgressMeters => _progressMeters;
 
         public void Clear()
@@ -140,7 +140,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
 
         /// <summary>
         /// Replaces the points (a re-plan). The head restarts at the first point plus the start offset; the
-        /// caller follows the student right away. <paramref name="clearances"/> may be null (unknown).
+        /// caller follows the player right away. <paramref name="clearances"/> may be null (unknown).
         /// </summary>
         public void Assign(IReadOnlyList<Vector2> points, IReadOnlyList<float> clearances, float clearanceCapMeters,
             float startOffsetMeters, float minVisibleMeters)
@@ -178,7 +178,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
-        /// A re-plan of the SAME route (the student drifted off the line, nothing in the world changed): the new
+        /// A re-plan of the SAME route (the player drifted off the line, nothing in the world changed): the new
         /// points replace the old ones, but the shown trail starts exactly as the old one looked and melts into
         /// the new one over <paramref name="seconds"/> (<see cref="AdvanceBlend"/> every frame) instead of
         /// jumping sideways. Both lines end at the same door, so they are matched by the distance left to
@@ -317,11 +317,11 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
-        /// Moves the visible start after the student. Within <paramref name="deviationLimitMeters"/> of the trail
+        /// Moves the visible start after the player. Within <paramref name="deviationLimitMeters"/> of the trail
         /// the head follows his projection plus the start offset (never closer than <paramref name="minVisibleMeters"/>
         /// to the target); farther away it stays where it was and the caller decides about a re-plan.
         /// </summary>
-        public RouteHintTrailFollow Follow(Vector2 student, float startOffsetMeters, float minVisibleMeters,
+        public RouteHintTrailFollow Follow(Vector2 player, float startOffsetMeters, float minVisibleMeters,
             float deviationLimitMeters)
         {
             if (!HasPoints)
@@ -329,7 +329,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
                 return new RouteHintTrailFollow(false, float.MaxValue, false);
             }
 
-            float progress = Project(student, out float deviation);
+            float progress = Project(player, out float deviation);
             bool onTrail = deviation <= deviationLimitMeters;
             if (onTrail)
             {
@@ -394,8 +394,8 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
             HeadPoint = PointAt(HeadDistance);
         }
 
-        /// <summary>Distance along the trail of the point nearest to <paramref name="student"/>.</summary>
-        private float Project(Vector2 student, out float deviation)
+        /// <summary>Distance along the trail of the point nearest to <paramref name="player"/>.</summary>
+        private float Project(Vector2 player, out float deviation)
         {
             float bestDeviationSquared = float.MaxValue;
             float bestScore = float.MaxValue;
@@ -406,11 +406,11 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
                 Vector2 segment = _points[i] - a;
                 float lengthSquared = segment.sqrMagnitude;
                 float t = lengthSquared > 0.000001f
-                    ? Mathf.Clamp01(Vector2.Dot(student - a, segment) / lengthSquared) : 0f;
-                float distanceSquared = (student - (a + segment * t)).sqrMagnitude;
+                    ? Mathf.Clamp01(Vector2.Dot(player - a, segment) / lengthSquared) : 0f;
+                float distanceSquared = (player - (a + segment * t)).sqrMagnitude;
                 float along = _distances[i - 1] + (_distances[i] - _distances[i - 1]) * t;
                 // A path that doubles back near itself: of two equally near candidates, stay with the one
-                // closest to where the student already was.
+                // closest to where the player already was.
                 float score = Mathf.Sqrt(distanceSquared) + Mathf.Abs(along - _progressMeters) * 0.0005f;
                 if (score < bestScore)
                 {

@@ -1,12 +1,12 @@
-﻿{
-  "name": "RedoSchool.LevelGeneration.Tests.EditMode",
-  "rootNamespace": "RedoSchool.Tests.EditMode.LevelGeneration",
+{
+  "name": "Neoxider.LevelGeneration.Tests.EditMode",
+  "rootNamespace": "Neoxider.LevelGeneration.Tests",
   "references": [
-    "RedoSchool.LevelGeneration.Domain",
-    "RedoSchool.LevelGeneration",
-    "RedoSchool.LevelGeneration.Unity",
-    "RedoSchool.LevelGeneration.Runtime",
-    "RedoSchool.LevelGeneration.Runtime.Domain",
+    "Neoxider.LevelGeneration.Domain",
+    "Neoxider.LevelGeneration",
+    "Neoxider.LevelGeneration.Unity",
+    "Neoxider.LevelGeneration.Runtime",
+    "Neoxider.LevelGeneration.Runtime.Domain",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

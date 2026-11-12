@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
+namespace Neoxider.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Что делать со «случайным касанием» — парой свободных дверей двух комнат, которые совпали геометрически
@@ -535,7 +535,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
             // A socket that is not part of any DoorConnection leads nowhere (empty space / a duplicate seam).
             // It must end Disabled so the player can never open it and escape the maze.
             // FlowDirection.None sockets are authored runtime-only doors, not procedural room connectors, so
-            // usable generated states are preserved for them and LevelSpawner can bind an auto-open trigger.
+            // usable generated states are preserved for them and the host spawner can bind an auto-open trigger.
             foreach (KeyValuePair<string, Dictionary<string, DoorState>> kv in doorStates)
             {
                 Dictionary<string, DoorState> room = kv.Value;

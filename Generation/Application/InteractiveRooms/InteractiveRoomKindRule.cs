@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.LevelGeneration.Generation.Application
+namespace Neoxider.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Data-driven <see cref="IInteractiveRoomKindRule"/> for question-shaped room types (a question with

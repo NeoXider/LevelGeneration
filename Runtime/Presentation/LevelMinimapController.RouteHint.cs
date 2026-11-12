@@ -1,18 +1,18 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Раскрытие комнат (вход и открытая дверь) и подсказка маршрута. Решения здесь не принимаются: когда
-    /// раскрыть комнату, решает <see cref="LevelMinimapSession"/>, куда и когда вести ученика —
+    /// раскрыть комнату, решает <see cref="LevelMinimapSession"/>, куда и когда вести игрока —
     /// <see cref="LevelRouteHintSession"/> (<see cref="DecideRouteHintUseCase"/>), какой линией —
     /// <see cref="PlanRouteHintPathUseCase"/>. Контроллер подаёт им события, время и состояние дверей и
     /// рисует результат одинаково на компактной и на большой карте.
@@ -127,7 +127,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         /// <summary>Доля проигранного проявления комнаты, которую сейчас рисуют; 1 — обычная отрисовка.</summary>
         private float _roomRevealProgress = 1f;
 
-        /// <summary>Ученик в мире или его держит UI — по последнему Update (до первого кадра — в мире).</summary>
+        /// <summary>Игрок в мире или его держит UI — по последнему Update (до первого кадра — в мире).</summary>
         private RouteHintPresence _playerPresence = RouteHintPresence.Exploring;
 
         /// <summary>Последний Repaint компактной карты не смог начать пунктир от живой позиции игрока.</summary>
@@ -175,7 +175,16 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         /// <summary>Исход последней прокладки пути подсказки (для диагностики и тестов).</summary>
         public RouteHintPathOutcome LastRouteHintPathOutcome { get; private set; } = RouteHintPathOutcome.NoTarget;
 
-        internal void SetSettings(LevelMinimapSettings value) => settings = value;
+        /// <summary>
+        /// Настройки, которые хозяин подставляет вместо ассета по умолчанию из <c>Resources/Minimap</c>: свой префаб
+        /// цепочки подсказки на полу, свои цвета и тайминги. В пакете префаба подсказки нет — его даёт игра.
+        /// </summary>
+        public void SetSettings(LevelMinimapSettings value)
+        {
+            settings = value;
+            // The collectible prefix may have changed: markers are re-read on the next scan.
+            InvalidateFragmentCapsuleCache();
+        }
 
         public LevelMinimapSettings Settings
         {
@@ -292,7 +301,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         }
 
         /// <summary>
-        /// Снимок состояния подсказки для чита и лога. В лог уходит ОДНА строка на смену состояния (ученик в
+        /// Снимок состояния подсказки для чита и лога. В лог уходит ОДНА строка на смену состояния (игрок в
         /// мире или занят UI, исход решения, путь проложен, фаза пути на полу, большая карта, старт пунктира
         /// от игрока) и, как раньше, периодическая строка при долгой блокировке. Так WebGL-сборка сама
         /// показывает, на каком шаге подсказка не дошла до экрана (план b333 §2a).
@@ -681,14 +690,14 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         }
 
         /// <summary>
-        /// Таймер простоя идёт по игровому времени и только пока ученик в мире
+        /// Таймер простоя идёт по игровому времени и только пока игрок в мире
         /// (<see cref="RouteHintPresenceUseCase"/>: ни панель, ни свободная мышь его не держат; WebGL-ожидание
-        /// захвата курсора браузером занятостью не считается). Пока ученика держит UI, подсказка гаснет: её
+        /// захвата курсора браузером занятостью не считается). Пока игрока держит UI, подсказка гаснет: её
         /// место занимает панель, которой он сейчас занят. Сначала путь проявляется на полу, и только по
         /// окончании проявления включается пунктир на миникарте (<see cref="DecideRouteHintRevealUseCase"/>).
         /// Reveal and floor effects use scaled time; hiding an unwanted hint uses unscaled time.
         /// </summary>
-        internal void UpdateRouteHint(float deltaTime, float now, bool playerInControl,
+        public void UpdateRouteHint(float deltaTime, float now, bool playerInControl,
             float? unscaledNow = null, float? unscaledDeltaTime = null)
         {
             LevelMinimapSettings config = Settings;
@@ -740,7 +749,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         }
 
         /// <summary>
-        /// Keeps the shared trail current. A student on the trail only drags its visible start along it (every
+        /// Keeps the shared trail current. A player on the trail only drags its visible start along it (every
         /// frame, no allocation); the planner runs again when the world changed (target, revealed rooms, task,
         /// locked doors) or when he walked farther than the deviation limit from the trail, and then not more
         /// often than the throttle in the settings allows (<see cref="DecideRouteHintReplanUseCase"/>).
@@ -795,7 +804,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
                 }
             }
 
-            _routeHintPlanned = ReplanRouteHint(reason == RouteHintReplanReason.StudentLeftTrail ? now : (float?)null);
+            _routeHintPlanned = ReplanRouteHint(reason == RouteHintReplanReason.PlayerLeftTrail ? now : (float?)null);
             _plannedRouteHintTaskActive = taskActive;
             _plannedRouteHintTargetVersion = _routeHint.TargetVersion;
             _plannedRouteHintRevealVersion = _session.RevealVersion;
@@ -823,7 +832,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         }
 
         /// <param name="blendNow">
-        /// Set when only the student left the line (the world is the same): the new line melts into the shown one
+        /// Set when only the player left the line (the world is the same): the new line melts into the shown one
         /// instead of replacing it at once. <c>null</c> — a plain replacement.
         /// </param>
         private bool ReplanRouteHint(float? blendNow = null)

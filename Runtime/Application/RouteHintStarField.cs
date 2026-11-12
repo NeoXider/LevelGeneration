@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Everything that shapes the golden star stream; the values come from the route hint ScriptableObject
@@ -107,7 +107,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
     /// <summary>
     /// The star stream as a pure function of the trail and the clock: a lattice of slots drifts along the
     /// trail, each slot owns one star whose size, twinkle (a minority twinkles long and slowly), sway and
-    /// speed jitter come from its seed. Stars are anchored to distance along the trail, so a student walking
+    /// speed jitter come from its seed. Stars are anchored to distance along the trail, so a player walking
     /// ahead does not drag them with him; the visible part begins at the head and fades in there. Scatter to
     /// the side is clamped by the free width measured along the trail, so the stream never leans on a wall,
     /// at corners and doorways as well. No allocation: results go into a reused array.

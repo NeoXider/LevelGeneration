@@ -1,21 +1,21 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Domain.Events;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Domain.Events;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Route hint wiring on a level with real proportions: one shared trail for the floor stars and the minimap
-    /// dashes, a visible start ahead of the student, throttled re-plans, a hint that stays while the student walks
+    /// dashes, a visible start ahead of the player, throttled re-plans, a hint that stays while the player walks
     /// along it and hides only on real progress (a room on the hinted path), never for a side room.
     /// </summary>
     [Category("LevelGeneration")]
@@ -99,7 +99,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void StartOffset_StarsAndDashesBeginAheadOfTheStudent_NotAtHisFeet()
+        public void StartOffset_StarsAndDashesBeginAheadOfThePlayer_NotAtHisFeet()
         {
             LevelMinimapController controller = CreateController(out LevelMinimapSettings settings,
                 out Transform player, out _);
@@ -164,7 +164,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Hint_StaysWhileTheStudentWalksTheTrail_AndHidesWhenHeEntersTheNextRoomOnTheRoute()
+        public void Hint_StaysWhileThePlayerWalksTheTrail_AndHidesWhenHeEntersTheNextRoomOnTheRoute()
         {
             LevelMinimapController controller = CreateController(out LevelMinimapSettings settings,
                 out Transform player, out SimpleRoomEventBus bus);
@@ -204,7 +204,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Hint_EnteringASideRoom_DoesNotHideIt_TheTrailReplansFromTheStudent()
+        public void Hint_EnteringASideRoom_DoesNotHideIt_TheTrailReplansFromThePlayer()
         {
             LevelMinimapController controller = CreateController(out LevelMinimapSettings settings,
                 out Transform player, out SimpleRoomEventBus bus);

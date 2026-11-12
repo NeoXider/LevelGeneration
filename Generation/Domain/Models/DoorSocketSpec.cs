@@ -1,6 +1,6 @@
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.LevelGeneration.Generation.Domain.Models
+namespace Neoxider.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Designer-time description of a door socket on a room prefab.

@@ -1,10 +1,10 @@
-﻿{
-  "name": "RedoSchool.LevelGeneration.Editor",
-  "rootNamespace": "RedoSchool.LevelGeneration.Editor",
+{
+  "name": "Neoxider.LevelGeneration.Editor",
+  "rootNamespace": "Neoxider.LevelGeneration.Editor",
   "references": [
-    "RedoSchool.LevelGeneration",
-    "RedoSchool.LevelGeneration.Domain",
-    "RedoSchool.LevelGeneration.Unity"
+    "Neoxider.LevelGeneration",
+    "Neoxider.LevelGeneration.Domain",
+    "Neoxider.LevelGeneration.Unity"
   ],
   "includePlatforms": [
     "Editor"

@@ -3,21 +3,21 @@ using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>The reason a route could not be planned, for a log line that says what to fix.</summary>
     public enum RouteHintFailureCause
     {
         None = 0,
 
-        /// <summary>The student is farther from every revealed floor than the start may be snapped from.</summary>
-        StudentFarFromFloor = 1,
+        /// <summary>The player is farther from every revealed floor than the start may be snapped from.</summary>
+        PlayerFarFromFloor = 1,
 
         /// <summary>The revealed rooms are not connected to the target room through open doors.</summary>
         NoOpenDoorChain = 2,
 
-        /// <summary>There is no free step from where the student stands.</summary>
-        StudentWalledIn = 3,
+        /// <summary>There is no free step from where the player stands.</summary>
+        PlayerWalledIn = 3,
 
         /// <summary>The rooms are connected, but walls leave no route inside one of them.</summary>
         RoomGeometryBlocksRoute = 4,
@@ -52,13 +52,13 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
             string meters = Meters.ToString("0.00", CultureInfo.InvariantCulture);
             switch (Cause)
             {
-                case RouteHintFailureCause.StudentFarFromFloor:
-                    return "student is " + meters + " m away from the floor of '" + RoomId + "'";
+                case RouteHintFailureCause.PlayerFarFromFloor:
+                    return "player is " + meters + " m away from the floor of '" + RoomId + "'";
                 case RouteHintFailureCause.NoOpenDoorChain:
                     return "no open door chain from '" + RoomId + "' to the target room ("
                            + LockedDoors.ToString(CultureInfo.InvariantCulture) + " locked or disabled door(s) next to the reachable rooms)";
-                case RouteHintFailureCause.StudentWalledIn:
-                    return "student is walled in inside '" + RoomId + "': no free step (wall clearance "
+                case RouteHintFailureCause.PlayerWalledIn:
+                    return "player is walled in inside '" + RoomId + "': no free step (wall clearance "
                            + meters + " m)";
                 case RouteHintFailureCause.RoomGeometryBlocksRoute:
                     return "walls leave no route inside '" + RoomId + "' to the target door";
@@ -75,12 +75,12 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
     public static partial class PlanRouteHintPathUseCase
     {
         /// <summary>
-        /// Explains a failed plan: where the student stands relative to the floor, whether open doors connect
+        /// Explains a failed plan: where the player stands relative to the floor, whether open doors connect
         /// the revealed rooms to the target, whether he can take a step at all. Called once after a failure,
         /// never for a successful plan, so it may be thorough rather than fast.
         /// </summary>
         public static RouteHintFailure Diagnose(RouteHintGeometry geometry, Func<string, bool> isRevealed,
-            Vector2 studentPosition, string currentRoomId, CriticalPathDoor target,
+            Vector2 playerPosition, string currentRoomId, CriticalPathDoor target,
             Func<RouteHintDoor, bool> isTransitDoorLocked, RouteHintPathOutcome outcome)
         {
             if (outcome == RouteHintPathOutcome.MissingGeometry)
@@ -94,17 +94,17 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
             }
 
             Func<string, bool> revealed = isRevealed ?? (_ => true);
-            if (geometry == null || !TryResolveStart(geometry, revealed, studentPosition, currentRoomId,
+            if (geometry == null || !TryResolveStart(geometry, revealed, playerPosition, currentRoomId,
                     out string startRoom, out Vector2 start)
                 || !geometry.TryGetRoom(startRoom, out RouteHintRoom room))
             {
-                return new RouteHintFailure(RouteHintFailureCause.StudentFarFromFloor, currentRoomId, float.MaxValue, 0);
+                return new RouteHintFailure(RouteHintFailureCause.PlayerFarFromFloor, currentRoomId, float.MaxValue, 0);
             }
 
-            room.TryGetNearestFloorPoint(studentPosition, out Vector2 _, out float gap);
+            room.TryGetNearestFloorPoint(playerPosition, out Vector2 _, out float gap);
             if (gap > StartSnapMeters)
             {
-                return new RouteHintFailure(RouteHintFailureCause.StudentFarFromFloor, startRoom, gap, 0);
+                return new RouteHintFailure(RouteHintFailureCause.PlayerFarFromFloor, startRoom, gap, 0);
             }
 
             HashSet<string> reachable = new(StringComparer.Ordinal) { startRoom };
@@ -144,7 +144,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
 
             if (!HasWalkableStep(room, start))
             {
-                return new RouteHintFailure(RouteHintFailureCause.StudentWalledIn, startRoom,
+                return new RouteHintFailure(RouteHintFailureCause.PlayerWalledIn, startRoom,
                     room.MeasureWallClearance(start, ClearanceCapMeters), 0);
             }
 

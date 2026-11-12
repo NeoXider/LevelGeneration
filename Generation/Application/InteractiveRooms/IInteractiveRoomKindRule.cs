@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Application
+namespace Neoxider.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Generation-facing part of one interactive room type: which content kind it is, which room

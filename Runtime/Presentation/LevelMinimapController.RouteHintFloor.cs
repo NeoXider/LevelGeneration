@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Путь подсказки маршрута на полу (план b333 §2b). Контроллер только подаёт входы: нужна ли подсказка
@@ -148,7 +148,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
                      && _routeHintFloorBuiltRevision != _routeHintTrail.Revision
                      && frame.Phase != RouteHintRevealPhase.Hidden && frame.Phase != RouteHintRevealPhase.FloorDone)
             {
-                // The trail was re-planned (the student left it) or is melting into the new plan: the stars follow
+                // The trail was re-planned (the player left it) or is melting into the new plan: the stars follow
                 // the points without restarting the reveal. Floor heights are probed once per re-plan
                 // (RouteHintTrail.PlanVersion); the frames of a blend only move the points in XZ.
                 if (RebuildRouteHintFloor(config, true) == RouteHintFloorBuild.Failed)

@@ -1,12 +1,12 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.LevelGeneration.Generation.Application
+namespace Neoxider.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// One room of an exactly forced mission path: the room kind, the mission content it hosts and an
     /// optional preferred room template. Unlike <see cref="IHybridSequenceStep"/> this carries the
-    /// content id, which is what makes a planned interactive room able to render real lesson content.
+    /// content id, which is what makes a planned interactive room able to render real content.
     /// </summary>
     public interface IForcedMainPathRoom
     {

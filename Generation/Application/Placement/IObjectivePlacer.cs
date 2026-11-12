@@ -1,6 +1,6 @@
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.Placement
+namespace Neoxider.LevelGeneration.Generation.Application.Placement
 {
     /// <summary>
     /// MVP port: pick where the main objective trigger goes inside Objective rooms.

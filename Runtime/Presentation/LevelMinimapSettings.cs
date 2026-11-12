@@ -1,7 +1,7 @@
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>Как рисуется подсказка маршрута на картах.</summary>
     public enum RouteHintStyle
@@ -28,6 +28,13 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         /// <summary>Free width along the trail is measured up to this distance; beyond it nothing limits the stars.</summary>
         public const float RouteHintClearanceCapMeters = 4f;
 
+        [Header("Предметы на карте")]
+        [SerializeField]
+        [Tooltip("Префикс имени объекта-предмета, который хозяин спавнит прямым ребёнком комнаты: такие объекты "
+                 + "рисуются отметками на картах (несобранный — кружок, собранный, то есть выключенный, — контур). "
+                 + "Пусто — отметок предметов нет.")]
+        private string collectibleMarkerNamePrefix = string.Empty;
+
         [Header("Раскрытие комнат")]
         [SerializeField] [Min(0f)]
         [Tooltip("Через сколько секунд после открытия двери комната за ней появляется на картах.")]
@@ -38,12 +45,12 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         private float roomRevealAnimationSeconds = 0.6f;
 
         [Header("Подсказка маршрута")]
-        [SerializeField] [Tooltip("Показывать подсказку маршрута, если ученик долго не продвигается к выходу.")]
+        [SerializeField] [Tooltip("Показывать подсказку маршрута, если игрок долго не продвигается к выходу.")]
         private bool routeHintEnabled = true;
 
         [SerializeField] [Min(1f)]
         [Tooltip("Сколько секунд без прогресса по пути к выходу ждать до подсказки. Пока открыта UI-панель, "
-                 + "вопрос или брифинг, время не идёт.")]
+                 + "UI-панель или диалог, время не идёт.")]
         private float routeHintIdleSeconds = 60f;
 
         [SerializeField] [Tooltip("Пунктир из точек или сплошная линия.")]
@@ -89,12 +96,12 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         private float routeHintReplanIntervalSeconds = 0.25f;
 
         [SerializeField] [Min(0.1f)]
-        [Tooltip("Насколько далеко от пути может отойти ученик, прежде чем путь строится заново от него, метры. "
+        [Tooltip("Насколько далеко от пути может отойти игрок, прежде чем путь строится заново от него, метры. "
                  + "Пока он ближе, путь только тянет своё начало за ним.")]
         private float routeHintReplanDeviationMeters = 1.5f;
 
         [SerializeField] [Min(0f)]
-        [Tooltip("За сколько секунд старая линия пути перетекает в новую, когда ученик отошёл от неё и путь "
+        [Tooltip("За сколько секунд старая линия пути перетекает в новую, когда игрок отошёл от неё и путь "
                  + "построился заново: линия плывёт, а не прыгает вбок. 0 — мгновенная замена.")]
         private float routeHintReplanBlendSeconds = 0.35f;
 
@@ -116,12 +123,12 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         private float routeHintPathDoorLeadOutMeters = 2f;
 
         [SerializeField] [Min(0f)]
-        [Tooltip("На сколько метров впереди ученика (вдоль пути) начинается видимая часть пути: звёзды "
+        [Tooltip("На сколько метров впереди игрока (вдоль пути) начинается видимая часть пути: звёзды "
                  + "начинаются не у его ног.")]
         private float routeHintPathStartOffsetMeters = 0.75f;
 
         [SerializeField] [Min(0f)]
-        [Tooltip("Сколько метров пути у цели видно всегда, даже когда ученик почти дошёл, метры.")]
+        [Tooltip("Сколько метров пути у цели видно всегда, даже когда игрок почти дошёл, метры.")]
         private float routeHintPathMinVisibleMeters = 0.5f;
 
         [Header("Подсказка маршрута — путь на полу")]
@@ -140,7 +147,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         private float routeHintFloorRevealSeconds = 1.25f;
 
         [SerializeField] [Min(0.05f)]
-        [Tooltip("За сколько секунд лента гаснет, когда ученик пошёл к цели.")]
+        [Tooltip("За сколько секунд лента гаснет, когда игрок пошёл к цели.")]
         private float routeHintFloorFadeSeconds = 0.9f;
 
         [SerializeField] [Min(0.05f)]
@@ -149,7 +156,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
 
         [SerializeField] [Min(0f)]
         [Tooltip("Устарело: ходьба по пути подсказку НЕ гасит (решение владельца 2026-10-16: подсказка держится, "
-                 + "пока ученик не продвинулся в верную комнату). 0 — не гасить; значение больше нуля вернёт "
+                 + "пока игрок не продвинулся в верную комнату). 0 — не гасить; значение больше нуля вернёт "
                  + "угасание ленты при приближении к цели.")]
         private float routeHintFloorApproachMeters = 0f;
 
@@ -303,6 +310,9 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         public float RouteHintPathMinVisibleMeters => Mathf.Max(0f, routeHintPathMinVisibleMeters);
 
         public bool RouteHintFloorEnabled => routeHintFloorEnabled;
+
+        /// <summary>Префикс имени объектов-предметов комнаты для отметок на картах; пусто — отметок нет.</summary>
+        public string CollectibleMarkerNamePrefix => collectibleMarkerNamePrefix ?? string.Empty;
         public RouteHintFloorView RouteHintFloorViewPrefab => routeHintFloorViewPrefab;
         public float RouteHintFloorRevealSeconds => Mathf.Max(0.05f, routeHintFloorRevealSeconds);
         public float RouteHintFloorFadeSeconds => Mathf.Max(0.05f, routeHintFloorFadeSeconds);

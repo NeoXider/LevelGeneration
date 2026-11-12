@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
+namespace Neoxider.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Lightweight diagnostics for level generation. These counters are intentionally runtime-safe and allocation-free

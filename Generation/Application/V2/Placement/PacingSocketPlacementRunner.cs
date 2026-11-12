@@ -1,20 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Diagnostics;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Application.Pipeline;
+using Neoxider.LevelGeneration.Generation.Application.V2.Diagnostics;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.V2.Placement
+namespace Neoxider.LevelGeneration.Generation.Application.V2.Placement
 {
     public sealed class PacingSocketPlacementRunner
     {
         private readonly IRoomPlacer roomPlacer;
+        private readonly RoomTemplateRoles roles;
 
-        public PacingSocketPlacementRunner(IRoomPlacer roomPlacer)
+        public PacingSocketPlacementRunner(IRoomPlacer roomPlacer, RoomTemplateRoles roles = null)
         {
             this.roomPlacer = roomPlacer ?? throw new ArgumentNullException(nameof(roomPlacer));
+            this.roles = roles ?? RoomTemplateRoles.None;
         }
 
         public PacingPlacementResult Place(
@@ -32,7 +34,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.V2.Placement
 
             try
             {
-                LevelGraph levelGraph = ToLevelGraph(graph);
+                LevelGraph levelGraph = ToLevelGraph(graph, roles);
                 LevelLayout layout = roomPlacer.Place(levelGraph, selections, rng, cancellationToken);
                 if (layout == null)
                 {
@@ -51,7 +53,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.V2.Placement
             }
         }
 
-        public static LevelGraph ToLevelGraph(PacingGraph graph)
+        public static LevelGraph ToLevelGraph(PacingGraph graph, RoomTemplateRoles roles = null)
         {
             if (graph == null)
             {
@@ -61,7 +63,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application.V2.Placement
             List<RoomNode> nodes = new(graph.Nodes.Count);
             for (int i = 0; i < graph.Nodes.Count; i++)
             {
-                nodes.Add(Selection.V2RoomSelectionAdapter.ToRoomNode(graph.Nodes[i]));
+                nodes.Add(Selection.V2RoomSelectionAdapter.ToRoomNode(graph.Nodes[i], roles));
             }
 
             List<LevelGraphEdge> edges = new(graph.Edges.Count);

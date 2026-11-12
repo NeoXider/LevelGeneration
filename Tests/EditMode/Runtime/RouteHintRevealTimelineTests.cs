@@ -1,11 +1,11 @@
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Application;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Порядок показа подсказки маршрута (план b333 §2b): лента проявляется на полу от игрока к цели,
-    /// держится, пока подсказка нужна и ученик не пошёл к цели, и гаснет; пунктир на миникарте ждёт конца
+    /// держится, пока подсказка нужна и игрок не пошёл к цели, и гаснет; пунктир на миникарте ждёт конца
     /// проявления на полу. Время подаётся снаружи — кадры не нужны.
     /// </summary>
     [Category("LevelGeneration")]

@@ -112,28 +112,32 @@ and `com.unity.nuget.newtonsoft-json` 3.2.1.
 ## Quick start
 
 ```csharp
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Infrastructure;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Application.Pipeline;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
 
 // RoomTemplate prefabs and TilesetSO assets under a Resources folder named "Rooms";
 // the RoomPrefabs listed in those tilesets are picked up as well.
 IRoomDatabase rooms = RoomDatabase.LoadFromResources("Rooms");
 ITilesetCatalog tilesets = TilesetCatalog.LoadFromResources("Rooms");
 IInteractiveRoomKindRules kinds = InteractiveRoomKindRules.Empty; // no quiz rooms yet
+// Templates the generator inserts itself (passage, branch hub, wrong-answer dead end); None = any compatible room.
+// Pass the same roles to MissionGenerator as its last argument (the Layout Pacing V2 path).
+RoomTemplateRoles roles = RoomTemplateRoles.None;
 
 var generator = new MissionGenerator(
     new SystemRandomRngFactory(),
-    new MissionGraphBuilder(kinds),
+    new MissionGraphBuilder(kinds, roles),
     new RoomSelector(kinds),
     new SocketBacktrackingRoomPlacer(kinds),
     new DoorConnector(connectIncidentalDoorContacts: true),
     new LevelValidator(rooms),
     rooms,
     tilesets,
-    kinds);
+    kinds,
+    roles: roles);
 
 // mission is your IMissionConfigView: tileset id, archetype, room ranges, generation mode, ...
 LevelLayout layout = await generator.BuildLayoutAsync(mission, seed: 12345, cancellationToken);
@@ -161,8 +165,8 @@ The package does not reference any game assembly (guarded by `LevelGenerationInd
 Whatever it needs to know about your game, your game hands over at startup:
 
 ```csharp
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
 using UnityEngine;
 
 static class LevelGenerationHookup
@@ -226,14 +230,15 @@ Every parameter lives in `LevelMinimapSettings` (default asset:
 
 | Assembly | Folder | Contents |
 |---|---|---|
-| `RedoSchool.LevelGeneration.Domain` | `Generation/Domain` | Graph, layout and door models; no engine references |
-| `RedoSchool.LevelGeneration` | `Generation/Application` | Generator pipeline, planners, selection, placement, validation; no engine references |
-| `RedoSchool.LevelGeneration.Unity` | `Generation` | `RoomTemplate`, `DoorSocket`, `TilesetSO`, `RoomDatabase`, project paths |
-| `RedoSchool.LevelGeneration.Runtime.Domain` | `Runtime/Domain` | Room, door and endpoint events; no engine references |
-| `RedoSchool.LevelGeneration.Runtime` | `Runtime` | Minimap, route hint, room instances, detectors, adaptive loading |
-| `RedoSchool.LevelGeneration.Editor` | `Editor` | Room authoring, compatibility report, inspectors |
+| `Neoxider.LevelGeneration.Domain` | `Generation/Domain` | Graph, layout and door models; no engine references |
+| `Neoxider.LevelGeneration` | `Generation/Application` | Generator pipeline, planners, selection, placement, validation; no engine references |
+| `Neoxider.LevelGeneration.Unity` | `Generation` | `RoomTemplate`, `DoorSocket`, `TilesetSO`, `RoomDatabase`, project paths |
+| `Neoxider.LevelGeneration.Runtime.Domain` | `Runtime/Domain` | Room, door and endpoint events; no engine references |
+| `Neoxider.LevelGeneration.Runtime` | `Runtime` | Minimap, route hint, room instances, detectors, adaptive loading |
+| `Neoxider.LevelGeneration.Editor` | `Editor` | Room authoring, compatibility report, inspectors |
 
-Assembly and namespace names keep the `RedoSchool` prefix of the game the package was extracted from.
+Assemblies and namespaces are `Neoxider.LevelGeneration.*` (renamed in 6.0.0 from the name of the game the
+package was extracted from — see CHANGELOG for the migration).
 EditMode tests live in `Tests/EditMode`.
 
 ---

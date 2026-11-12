@@ -1,14 +1,14 @@
 ﻿using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Application.Pipeline;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
+namespace Neoxider.LevelGeneration.Generation.Presentation.Runtime
 {
     /// <summary>
     /// Prefab-level authoring contract for procedural rooms.
@@ -23,7 +23,7 @@ namespace RedoSchool.LevelGeneration.Generation.Presentation.Runtime
 
 #if UNITY_EDITOR
         private const string DrawFootprintGizmosEditorPref =
-            "RedoSchool.LevelGeneration.RoomAuthoring.DrawFootprintGizmos";
+            "Neoxider.LevelGeneration.RoomAuthoring.DrawFootprintGizmos";
 
         public static bool DrawFootprintGizmos
         {

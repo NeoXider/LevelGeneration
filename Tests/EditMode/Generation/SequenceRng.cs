@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Application;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
+namespace Neoxider.LevelGeneration.Tests.Generation
 {
     internal sealed class SequenceRng : IDeterministicRng
     {

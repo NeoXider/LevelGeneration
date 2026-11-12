@@ -1,6 +1,6 @@
-using RedoSchool.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Application;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
+namespace Neoxider.LevelGeneration.Tests.Generation
 {
     /// <summary>
     /// Interactive room types for the generator tests. The level-generation package knows no concrete kind:
@@ -16,6 +16,10 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
         public const string PasswordDoor = "PasswordDoor";
         public const string ShootingGallery = "ShootingGallery";
 
+        /// <summary>Neutral templates of the test tileset for the rooms the generator inserts itself.</summary>
+        public static readonly Neoxider.LevelGeneration.Generation.Application.Pipeline.RoomTemplateRoles Roles =
+            new("passage_2doors", "hub_3doors", "dead_end_1door");
+
         public static readonly IInteractiveRoomKindRules Standard = new InteractiveRoomKindRules(
             new IInteractiveRoomKindRule[]
             {
@@ -26,9 +30,9 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
                     moduleNameTokens: new[] { "quizbranch" },
                     legacyMatchPriority: 0,
                     hints: new InteractiveRoomGenerationHints(
-                        preferredRoomTemplateId: "Room_Door4_Int",
-                        preferredSpacerRoomTemplateIdBefore: "PlusTonnel_3Doors",
-                        branchPassageRoomTemplateIdAfter: "Toonel",
+                        preferredRoomTemplateId: "maze_room_4doors",
+                        preferredSpacerRoomTemplateIdBefore: "hub_3doors",
+                        branchPassageRoomTemplateIdAfter: "passage_2doors",
                         placeLastAmongMainPathContent: true)),
                 new InteractiveRoomKindRule(
                     LeverPanel,
@@ -45,7 +49,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
                     moduleNameTokens: new[] { "password" },
                     legacyMatchPriority: 2,
                     hints: new InteractiveRoomGenerationHints(
-                        preferredPassageRoomTemplateIdAfter: "PlusTonnel_3Doors")),
+                        preferredPassageRoomTemplateIdAfter: "hub_3doors")),
                 new InteractiveRoomKindRule(
                     ShootingGallery,
                     InteractiveRoomAnswerLayout.LockedExit,

@@ -1,8 +1,16 @@
 # Neoxider LevelGeneration API
 
-Документ описывает публичную поверхность reusable библиотеки. RedoSchool-specific JSON parsing, rewards, cheats и room gameplay modules находятся вне package boundary.
+Документ описывает публичную поверхность reusable библиотеки. Разбор контента игры, награды, читы и gameplay-модули комнат живут в игре-хозяине, вне границы пакета.
 
 ## Pure C# generator
+
+**Роли шаблонов (`RoomTemplateRoles`).** Комнаты, которые генератор вставляет сам — обычный проход (спейсеры,
+туннели ответов лабиринта), развилка для цепочки ветки и тупик неверного ответа, — он берёт по ролям, которые
+называет хозяин: `new RoomTemplateRoles(passageId, branchHubId, answerDeadEndId)`. Роли передаются ДВАЖДЫ и
+одинаково: в `MissionGraphBuilder` (путь V1) и в `MissionGenerator` (путь Layout Pacing V2); тем же значением — в
+`V2RoomSelectionAdapter` и `PacingSocketPlacementRunner`, если хозяин зовёт их напрямую. Без ролей
+(`RoomTemplateRoles.None`) подходит любой совместимый шаблон: тайлсету, у которого туннели ответов обязаны совпадать
+по семейству дверей с комнатой лабиринта, роли нужно передать, иначе ответвления не состыкуются.
 
 Основной facade:
 
@@ -20,7 +28,7 @@ MissionGenerator.BuildLayoutAsync(IMissionConfigView config, int seed, Cancellat
 ## Interactive room kinds
 
 Пакет не знает ни одного конкретного вида интерактивной комнаты. Хост передаёт правила своих типов как
-`IInteractiveRoomKindRules` (у RedoSchool — реестр типов комнат) в `MissionGenerator`, `MissionGraphBuilder`,
+`IInteractiveRoomKindRules` (у игры — её реестр типов комнат) в `MissionGenerator`, `MissionGraphBuilder`,
 `RoomSelector`, `SocketBacktrackingRoomPlacer` и `MissionGenerator.CreateInteractiveContentConfig`; параметр
 обязательный, `InteractiveRoomKindRules.Empty` — «интерактивных типов нет».
 
@@ -52,7 +60,7 @@ ResolvePlan -> BuildGraph -> SelectRooms -> PlaceRooms -> ConnectDoors -> Valida
 Core concepts:
 
 - `LayoutPacingConfig` - main gaps, branch count/length, bias, optional caps, budget, retry policy.
-- `PlannedInteractiveContent` - уже resolved mandatory/optional content; core не парсит RedoSchool JSON напрямую.
+- `PlannedInteractiveContent` - уже resolved mandatory/optional content; core не парсит JSON игры напрямую.
 - `PacingMainPathPlanner` - строит `Start -> ordinary gap -> mandatory interactive -> ... -> Exit`.
 - `QuizBranchGraphExpander` - создает answer tunnels для контента с раскладкой `DoorPerOption` (`AnswerBranchPolicy.CorrectContinuesWrongTerminal`).
 - `PacingBranchPlanner` - добавляет ordinary/optional side branches по pacing config.
@@ -61,7 +69,7 @@ Core concepts:
 
 ## Unity authoring surface
 
-`RedoSchool.LevelGeneration.Unity` содержит:
+`Neoxider.LevelGeneration.Unity` содержит:
 
 - `RoomTemplate` - root descriptor prefab комнаты.
 - `DoorSocket` - socket id, size, initial state, connectability и visual state.
@@ -76,21 +84,21 @@ Door docking source of truth: physical visual/bounds door center from `DoorSocke
 
 ## Runtime primitives
 
-`RedoSchool.LevelGeneration.Runtime` содержит reusable runtime-поведение:
+`Neoxider.LevelGeneration.Runtime` содержит reusable runtime-поведение:
 
 - `LevelMinimapController` и minimap rendering primitives.
 - `RoomInstance` и generated room metadata.
 - Room-enter/endpoint/door-transition helper components/events.
 
 Pure C# события комнат, дверей и endpoint вынесены в отдельную assembly
-`RedoSchool.LevelGeneration.Runtime.Domain` (`noEngineReferences=true`); Unity-компоненты runtime зависят
+`Neoxider.LevelGeneration.Runtime.Domain` (`noEngineReferences=true`); Unity-компоненты runtime зависят
 от неё, а не владеют этими контрактами.
 
 Обе presentation-карты `LevelMinimapController` используют только
 `LevelMinimapSession.GetVisibleRooms()` и `GetVisibleConnections()`: большая карта, как и угловая,
-не раскрывает комнаты, в которые игрок не входил и двери в которые перед ним не открывались, а также их связи, выход и колбы-фрагменты. `GetAllRooms()` и
+не раскрывает комнаты, в которые игрок не входил и двери в которые перед ним не открывались, а также их связи, выход и предметы. `GetAllRooms()` и
 `GetAllConnections()` остаются сырым API layout для диагностики и непредставленческих потребителей;
-подключать их к карте нельзя, иначе ученик заранее увидит выход и длину маршрута.
+подключать их к карте нельзя, иначе игрок заранее увидит выход и длину маршрута.
 
 Раскрытие по входу и подсказка маршрута:
 
@@ -118,21 +126,21 @@ Pure C# события комнат, дверей и endpoint вынесены �
   `RouteHintPathOptions(clearanceMeters, doorApproachMeters)` держат путь от поверхности стен не ближе
   отступа (ступенчато уменьшается в узких комнатах, затем прежний поиск), проходят центр проёма по
   перпендикуляру к стене и по возможности идут по середине комнат; `RouteHintPathOptions.Legacy` — прежний
-  кратчайший путь. Ученик в проёме (за краем пола не дальше `StartSnapMeters` = 1,2 м) стартует с ближайшей
-  точки пола, ученик без свободного первого шага — с точки кольца вокруг (`TryRecoverStart`).
-  `PlanRouteHintPathUseCase.Diagnose(...)` → `RouteHintFailure` (`Cause`: `StudentFarFromFloor` /
-  `NoOpenDoorChain` / `StudentWalledIn` / `RoomGeometryBlocksRoute` / `TargetDoorUnknown` /
+  кратчайший путь. Игрок в проёме (за краем пола не дальше `StartSnapMeters` = 1,2 м) стартует с ближайшей
+  точки пола, игрок без свободного первого шага — с точки кольца вокруг (`TryRecoverStart`).
+  `PlanRouteHintPathUseCase.Diagnose(...)` → `RouteHintFailure` (`Cause`: `PlayerFarFromFloor` /
+  `NoOpenDoorChain` / `PlayerWalledIn` / `RoomGeometryBlocksRoute` / `TargetDoorUnknown` /
   `TargetRoomHidden`, `Describe()`, `Key`) — почему маршрут не проложен, для одной строки лога на смену причины.
   `RouteHintGeometry.MeasureWallClearance(point, cap)` и `TryFindNearestFloor(...)` — свободная ширина и
   ближайший пол.
 - `RouteHintTrail` — ОДНА линия подсказки для пола и миникарты: `Points`/`Distances`/`Clearances`, `Revision`
   (растёт только при `Assign` — перепланировании), `HeadDistance`/`HeadPoint` (видимое начало),
-  `ProgressMeters`, `RemainingMeters`, `Follow(student, startOffset, minVisible, deviationLimit)` →
+  `ProgressMeters`, `RemainingMeters`, `Follow(player, startOffset, minVisible, deviationLimit)` →
   `RouteHintTrailFollow` (`OnTrail`, `DeviationMeters`), `FillVisible(list)` (голова и точки за ней).
   `RouteHintTrailBuilder.Build(geometry, route, smoothingShape, clearanceCap, startOffset, minVisible, trail)` —
   сглаживание углов один раз и замер свободной ширины.
   `DecideRouteHintReplanUseCase.Execute(RouteHintReplanInput)` → `RouteHintReplanReason` (`None` /
-  `WorldChanged` / `StudentLeftTrail` / `NoTrail`): изменение мира перепланирует сразу, уход ученика от линии
+  `WorldChanged` / `PlayerLeftTrail` / `NoTrail`): изменение мира перепланирует сразу, уход игрока от линии
   дальше порога — не чаще троттла.
 - `IRoomTaskAnchor` — точка задания и `IsTaskCompleted`; незавершённая активная панель получает
   приоритет перед дверью, завершённая уступает цель следующей двери.
@@ -144,12 +152,13 @@ Pure C# события комнат, дверей и endpoint вынесены �
   Подключение — `MinimapGameplay.Context`; без него карта автономна (в мире, клавиатура свободна).
   Журнал — `LevelGenerationRuntimeLog.Info/Warn` с приёмниками `InfoSink`/`WarnSink` (сообщение, файл,
   метод); без приёмника — консоль Unity. Решение о присутствии по фактам ввода живёт в игре
-  (RedoSchool: `RouteHintPresenceUseCase`, мост `MinimapGameplayBridge`). `LevelMinimapController.IsFullMapVisible`; `TickFrame(presence,
+  (решение и мост к карте — на стороне игры). `LevelMinimapController.IsFullMapVisible`; `TickFrame(presence,
   fullMapKeyPressed, deltaTime, unscaledDeltaTime, now, scaledNow = null)` — кадр карты без устройств ввода (internal, для
-  EditMode-тестов через `InternalsVisibleTo`).
+  EditMode-тестов через `InternalsVisibleTo`). Публичные точки хозяина: `SetSettings(settings)` — свои настройки
+  карты (префаб подсказки на полу, префикс предметов `CollectibleMarkerNamePrefix`), `PlayerTransform` — игрок, за
+  которым следит карта, `UpdateRouteHint(...)` — шаг подсказки для собственного цикла хозяина.
 
-Путь подсказки на полу (сначала пол, потом миникарта). Префаб цепочки `RouteHintFloorView` (аддитивный материал четырёхлучевых звёздочек) лежит в `Assets/_source/Prefabs/RouteHint/` и назначен в
-`Resources/Minimap/LevelMinimapSettings.asset` (`RouteHintFloorViewPrefab`); страж — `RouteHintFloorPrefabGuardTests`:
+Путь подсказки на полу (сначала пол, потом миникарта). Префаб цепочки `RouteHintFloorView` (аддитивный материал звёздочек) даёт игра: в ассете пакета `Resources/Minimap/LevelMinimapSettings.asset` поле `RouteHintFloorViewPrefab` пустое, а хозяин подставляет свои настройки через `LevelMinimapController.SetSettings`. Без префаба подсказка на полу не рисуется (предупреждение в журнале), пунктир миникарты остаётся:
 
 - `DecideRouteHintRevealUseCase.Execute(state, input, timing)` / `Evaluate(...)` и
   `RouteHintRevealTimeline.Advance(RouteHintRevealInput, RouteHintRevealTiming)` → `RouteHintRevealFrame`
@@ -202,11 +211,11 @@ Pure C# события комнат, дверей и endpoint вынесены �
   `CreateRouteHintRevealTiming()`, `CreateRouteHintRibbonShape()`, `CreateRouteHintSmoothingShape()`,
   `CreateRouteHintPathOptions()`, `CreateRouteHintStarStyle()`.
 
-Project-specific spawn, room module binding, rewards и mission flow остаются в RedoSchool integration layer.
+Project-specific spawn, room module binding, rewards и mission flow остаются в слое интеграции игры-хозяина.
 
 ## Editor API
 
-`RedoSchool.LevelGeneration.Editor` содержит:
+`Neoxider.LevelGeneration.Editor` содержит:
 
 - Room authoring toolkit.
 - Room compatibility report.
@@ -225,7 +234,7 @@ Editor tools должны проверять тот же door frame contract, ч
   (`Time.time`); движение и мерцание вычисляются по тому же аргументу. Shuriken получает готовые частицы
   через `SetParticles`, его автономное движение выключено (`simulationSpeed=0`, `useUnscaledTime=false`).
 - `Hide()` немедленно выключает ленту, останавливает и очищает все дочерние звёздочки, даже на паузе.
-- Internal-границы тестов: `PlayerTransform`, `SetSettings`, `UpdateRouteHint`, `ProjectPlayerPosition`,
+- Internal-границы тестов: `ProjectPlayerPosition`,
   `BuildRouteHintScreenPath`, `RouteHintScreenPath`; доступ — существующий `InternalsVisibleTo`, без reflection.
 - Маркер и безопасное живое начало маршрута проецируются из мировой позиции игрока; центр большой карты
   остаётся центром границ комнат, компактной — позицией игрока.

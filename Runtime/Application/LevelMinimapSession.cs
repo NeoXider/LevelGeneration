@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Runtime.Domain.Events;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Runtime.Domain.Events;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Состояние миникарты одной миссии. Обе карты показывают посещённые комнаты и комнаты за открытыми
     /// дверями. Комната раскрывается при входе игрока (<see cref="RoomEnteredEvent"/>) или через задержку
     /// после открытия двери в неё (<see cref="ScheduleReveal"/>, владелец 2026-10-14). Ожидающее раскрытие в
-    /// checkpoint не переносится; уже раскрытая по двери комната переносится — ученик её видел.
+    /// checkpoint не переносится; уже раскрытая по двери комната переносится — игрок её видел.
     /// Время приходит снаружи явным аргументом, поэтому сессия тестируется без сцены.
     /// </summary>
     public sealed class LevelMinimapSession
@@ -272,7 +272,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         /// Дверь <paramref name="socketId"/> комнаты <paramref name="nodeId"/> открылась перед игроком: обе комнаты
         /// её связи раскроются в момент <paramref name="revealAtTime"/> (уже раскрытые пропускаются). Обе — потому
         /// что живая дверь у связи одна: игра оставляет дверь From-комнаты, а дубль в To-комнате выключает и
-        /// прячет. Эту одну дверь открывают с обеих сторон, и ученик, вернувшийся к ней из To-комнаты (обходной
+        /// прячет. Эту одну дверь открывают с обеих сторон, и игрок, вернувшийся к ней из To-комнаты (обходной
         /// путь, возврат из чекпоинта), обязан увидеть комнату за ней, а не «раскрыть» ту, где стоит. Комната, где
         /// он стоит, уже раскрыта, поэтому фактически проявляется только дальняя сторона.
         /// Возвращает, сколько комнат поставлено в очередь.

@@ -1,16 +1,16 @@
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>Why the route hint is re-planned (or not).</summary>
     public enum RouteHintReplanReason
     {
-        /// <summary>The shown trail is still good: keep it and only move its start after the student.</summary>
+        /// <summary>The shown trail is still good: keep it and only move its start after the player.</summary>
         None = 0,
 
         /// <summary>Target, revealed rooms, target task or a transit door changed: the old trail is wrong.</summary>
         WorldChanged = 1,
 
-        /// <summary>The student walked away from the trail by more than the allowed deviation.</summary>
-        StudentLeftTrail = 2,
+        /// <summary>The player walked away from the trail by more than the allowed deviation.</summary>
+        PlayerLeftTrail = 2,
 
         /// <summary>There is no trail yet, or the last attempt failed: try again.</summary>
         NoTrail = 3
@@ -35,7 +35,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         /// <summary>Target version, reveal version, task state or the locked-door set differ from the plan.</summary>
         public bool WorldChanged { get; }
 
-        /// <summary>Distance from the student to the trail (<see cref="RouteHintTrail.Follow"/>), metres.</summary>
+        /// <summary>Distance from the player to the trail (<see cref="RouteHintTrail.Follow"/>), metres.</summary>
         public float DeviationMeters { get; }
 
         public float DeviationLimitMeters { get; }
@@ -48,9 +48,9 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
     }
 
     /// <summary>
-    /// Decides when the route hint plans again. A changed world re-plans at once; a student who left the trail
+    /// Decides when the route hint plans again. A changed world re-plans at once; a player who left the trail
     /// re-plans from where he stands, but not more often than the throttle allows and never every frame; a
-    /// student on the trail only drags its start along. Without state: the controller holds the times.
+    /// player on the trail only drags its start along. Without state: the controller holds the times.
     /// </summary>
     public static class DecideRouteHintReplanUseCase
     {
@@ -68,7 +68,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
             }
 
             return throttleOpen && input.DeviationMeters > input.DeviationLimitMeters
-                ? RouteHintReplanReason.StudentLeftTrail
+                ? RouteHintReplanReason.PlayerLeftTrail
                 : RouteHintReplanReason.None;
         }
     }

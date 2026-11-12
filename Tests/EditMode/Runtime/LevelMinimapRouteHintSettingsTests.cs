@@ -1,17 +1,17 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// What the owner tuned lives in the route hint ScriptableObject (class defaults and the shipped asset): golden
     /// stars, a slow 0.5 m/s drift, small-skewed sizes, long twinkles for a minority, scatter that fits inside the
-    /// wall clearance, a start 0.75 m ahead of the student, a hint that does not go out on approach.
+    /// wall clearance, a start 0.75 m ahead of the player, a hint that does not go out on approach.
     /// </summary>
     [Category("LevelGeneration")]
     public sealed class LevelMinimapRouteHintSettingsTests
@@ -53,14 +53,13 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void ProductionAsset_StarsAreGoldenYellow_AndTheMaterialMatches()
+        public void ProductionAsset_StarsAreGoldenYellow()
         {
             LevelMinimapSettings settings = ProductionSettings();
 
             AssertGolden(settings.RouteHintFloorSparkleColor);
-            Material material = settings.RouteHintFloorViewPrefab.Sparkles.GetComponent<ParticleSystemRenderer>()
-                .sharedMaterial;
-            AssertGolden(material.GetColor("_Tint"));
+            Assert.IsNull(settings.RouteHintFloorViewPrefab,
+                "The package ships no route hint prefab: the host's own settings name it (SetSettings).");
         }
 
         [TestCase(false)]
@@ -101,7 +100,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 
         [TestCase(false)]
         [TestCase(true)]
-        public void Hint_DoesNotGoOutWhenTheStudentWalksTowardTheTarget(bool production)
+        public void Hint_DoesNotGoOutWhenThePlayerWalksTowardTheTarget(bool production)
         {
             LevelMinimapSettings settings = production ? ProductionSettings() : NewSettings();
 

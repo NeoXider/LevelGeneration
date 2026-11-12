@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Domain.Enums
+namespace Neoxider.LevelGeneration.Generation.Domain.Enums
 {
     /// <summary>
     /// How the player exits a mission. See PLAN.md §G.

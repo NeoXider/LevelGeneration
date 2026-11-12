@@ -1,13 +1,13 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application;
-using RedoSchool.LevelGeneration.Generation.Infrastructure.Data;
+using Neoxider.LevelGeneration.Generation.Application;
+using Neoxider.LevelGeneration.Generation.Infrastructure.Data;
 using UnityEngine;
 
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
-namespace RedoSchool.LevelGeneration.Generation.Infrastructure
+namespace Neoxider.LevelGeneration.Generation.Infrastructure
 {
     /// <summary>
     /// <see cref="ITilesetCatalog"/> backed by <c>Resources.LoadAll&lt;TilesetSO&gt;</c>.

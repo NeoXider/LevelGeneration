@@ -1,11 +1,11 @@
 #if UNITY_EDITOR
 using System;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
 using UnityEditor;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Editor
+namespace Neoxider.LevelGeneration.Editor
 {
     [CustomEditor(typeof(DoorSocket))]
     [CanEditMultipleObjects]

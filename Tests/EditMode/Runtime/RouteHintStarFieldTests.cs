@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// The golden star stream: scatter never leans on a wall (corners and doorways included), sizes are
     /// skewed small with a few large, a minority twinkles long and slowly, every star sways around a slow
-    /// mean drift, and the stream is anchored to the path, not to the student.
+    /// mean drift, and the stream is anchored to the path, not to the player.
     /// </summary>
     [Category("LevelGeneration")]
     public sealed class RouteHintStarFieldTests

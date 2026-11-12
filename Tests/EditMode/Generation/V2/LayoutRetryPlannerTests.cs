@@ -1,8 +1,8 @@
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Policies;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Application.V2.Policies;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation.V2
+namespace Neoxider.LevelGeneration.Tests.Generation.V2
 {
     [Category("LevelGeneration")]
     public sealed class LayoutRetryPlannerTests

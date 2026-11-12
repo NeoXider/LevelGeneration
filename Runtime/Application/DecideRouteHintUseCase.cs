@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>Исход решения о подсказке маршрута.</summary>
     public enum RouteHintOutcome
@@ -12,7 +12,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         /// <summary>Все комнаты критического пути уже посещены: дальше вести некуда.</summary>
         RouteComplete = 1,
 
-        /// <summary>Цель есть, но ученик ещё не простоял положенное время без прогресса.</summary>
+        /// <summary>Цель есть, но игрок ещё не простоял положенное время без прогресса.</summary>
         Waiting = 2,
 
         /// <summary>Пора показать подсказку.</summary>
@@ -41,7 +41,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
     }
 
     /// <summary>
-    /// Решает, куда и когда вести ученика подсказкой маршрута. Цель — переход из самой дальней уже
+    /// Решает, куда и когда вести игрока подсказкой маршрута. Цель — переход из самой дальней уже
     /// посещённой комнаты критического пути в следующую, ещё не посещённую. «Дальняя» считается по индексу
     /// на пути, а не по последнему действию: вернуться назад, побродить по пройденному или посетить тупик
     /// неправильного ответа — не прогресс, и цель от этого не меняется.

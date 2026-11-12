@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>Фаза показа подсказки маршрута: сначала путь на полу, потом пунктир на миникарте.</summary>
     public enum RouteHintRevealPhase
@@ -14,7 +14,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         /// <summary>Лента проявилась и держится; пунктир на миникарте включён.</summary>
         FloorHolding = 2,
 
-        /// <summary>The ribbon fades when the student approaches the target or the hint is hidden.</summary>
+        /// <summary>The ribbon fades when the player approaches the target or the hint is hidden.</summary>
         FloorFading = 3,
 
         /// <summary>Лента погасла, пунктир на миникарте остаётся, пока подсказка нужна.</summary>
@@ -27,13 +27,13 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         None = 0,
 
         /// <summary>
-        /// Ученик подошёл к цели ближе заданного порога. Включается только ненулевым
-        /// <see cref="RouteHintRevealTiming.ApproachMeters"/>: по умолчанию подсказка держится, пока ученик не
+        /// Игрок подошёл к цели ближе заданного порога. Включается только ненулевым
+        /// <see cref="RouteHintRevealTiming.ApproachMeters"/>: по умолчанию подсказка держится, пока игрок не
         /// продвинулся в комнату на пути (решение владельца 2026-10-16), а не гаснет от ходьбы по ней.
         /// </summary>
         ApproachedTarget = 1,
 
-        /// <summary>Подсказка больше не нужна или ученика занял интерфейс: гаснет вместе с миникартой.</summary>
+        /// <summary>Подсказка больше не нужна или игрока занял интерфейс: гаснет вместе с миникартой.</summary>
         HintHidden = 2
     }
 
@@ -60,10 +60,10 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
     }
 
-    /// <summary>Входы одного шага показа: что решила подсказка и где сейчас ученик.</summary>
+    /// <summary>Входы одного шага показа: что решила подсказка и где сейчас игрок.</summary>
     public readonly struct RouteHintRevealInput
     {
-        /// <summary>Подсказка нужна прямо сейчас: решение «показать», путь проложен, ученик в мире.</summary>
+        /// <summary>Подсказка нужна прямо сейчас: решение «показать», путь проложен, игрок в мире.</summary>
         public readonly bool HintVisible;
 
         /// <summary>Есть чем рисовать ленту на полу. Нет — пунктир на миникарте включается сразу.</summary>
@@ -72,7 +72,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         /// <summary>Номер пути: смена цели начинает проявление ленты заново.</summary>
         public readonly int PathVersion;
 
-        /// <summary>Сколько метров осталось ученику до цели по пути подсказки.</summary>
+        /// <summary>Сколько метров осталось игроку до цели по пути подсказки.</summary>
         public readonly float RemainingMeters;
 
         /// <summary>Scaled game time in seconds; reveal and approach fading pause with gameplay.</summary>
@@ -151,7 +151,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
 
     /// <summary>
     /// Порядок показа подсказки маршрута (владелец 2026-10-14, план b333 §2b): лента проявляется на полу от
-    /// игрока к цели → держится, пока подсказка нужна и ученик не пошёл к цели → гаснет; пунктир на
+    /// игрока к цели → держится, пока подсказка нужна и игрок не пошёл к цели → гаснет; пунктир на
     /// миникарте включается, когда проявление на полу закончилось, и остаётся, пока подсказка нужна.
     /// Решает только «когда»; КУДА — <see cref="DecideRouteHintUseCase"/>, КАКОЙ ЛИНИЕЙ —
     /// <see cref="PlanRouteHintPathUseCase"/>. Без состояния: состояние держит
@@ -259,7 +259,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
             bool fadeFinished = elapsed >= FadeDuration(state.FadeReason, timing);
             if (state.FadeReason == RouteHintFloorFadeReason.HintHidden)
             {
-                // Подсказку убрали (ученик в панели, вошёл в новую комнату): после угасания показ начнётся с
+                // Подсказку убрали (игрок в панели, вошёл в новую комнату): после угасания показ начнётся с
                 // проявления заново, если подсказка снова нужна.
                 if (!fadeFinished)
                 {

@@ -2,10 +2,10 @@
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration;
+using Neoxider.LevelGeneration;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
+namespace Neoxider.LevelGeneration.Tests.Generation
 {
     [Category("LevelGeneration")]
     public sealed class LevelGenerationPackageInfoTests
@@ -54,27 +54,29 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
             string packageRoot = LevelGenerationPackageRoot();
 
             AssertCoreAsmdef(
-                Path.Combine(packageRoot, "Generation", "Domain", "RedoSchool.LevelGeneration.Domain.asmdef"),
+                Path.Combine(packageRoot, "Generation", "Domain", "Neoxider.LevelGeneration.Domain.asmdef"),
                 new string[0]);
             AssertCoreAsmdef(
-                Path.Combine(packageRoot, "Generation", "Application", "RedoSchool.LevelGeneration.asmdef"),
-                new[] { "RedoSchool.LevelGeneration.Domain" });
+                Path.Combine(packageRoot, "Generation", "Application", "Neoxider.LevelGeneration.asmdef"),
+                new[] { "Neoxider.LevelGeneration.Domain" });
 
-            string[] forbiddenUsingPrefixes = new[] { "using UnityEngine", "using UnityEditor", "using Cysharp", "using MessagePipe", "using VContainer", "using RedoSchool.World", "using RedoSchool.Teacher", "using RedoSchool.Player", "using RedoSchool.Hub", "using RedoSchool.Platform", "using RedoSchool.CodePlayground", "using RedoSchool.LevelGeneration.Runtime" };
+            // Allow-list, not a deny-list of a particular host: the pure layers may use only .NET and the
+            // generation layers of this package — never the engine, a DI/async library or any game.
+            string[] allowedUsingPrefixes = new[] { "using System", "using Neoxider.LevelGeneration.Generation." };
 
-            AssertNoForbiddenUsings(Path.Combine(packageRoot, "Generation", "Domain"), forbiddenUsingPrefixes);
-            AssertNoForbiddenUsings(Path.Combine(packageRoot, "Generation", "Application"), forbiddenUsingPrefixes);
+            AssertOnlyAllowedUsings(Path.Combine(packageRoot, "Generation", "Domain"), allowedUsingPrefixes);
+            AssertOnlyAllowedUsings(Path.Combine(packageRoot, "Generation", "Application"), allowedUsingPrefixes);
         }
 
         /// <summary>
-        /// Корень пакета — по asmdef <c>RedoSchool.LevelGeneration.Unity</c> (лежит в <c>Generation/</c>), а не строкой:
+        /// Корень пакета — по asmdef <c>Neoxider.LevelGeneration.Unity</c> (лежит в <c>Generation/</c>), а не строкой:
         /// пакет лежит и в <c>Assets</c>, и установленным из git в <c>Packages</c> (<c>Library/PackageCache</c>).
         /// </summary>
         private static string LevelGenerationPackageRoot()
         {
             string asmdef = UnityEditor.Compilation.CompilationPipeline
-                .GetAssemblyDefinitionFilePathFromAssemblyName("RedoSchool.LevelGeneration.Unity");
-            Assert.IsFalse(string.IsNullOrEmpty(asmdef), "asmdef RedoSchool.LevelGeneration.Unity не найден.");
+                .GetAssemblyDefinitionFilePathFromAssemblyName("Neoxider.LevelGeneration.Unity");
+            Assert.IsFalse(string.IsNullOrEmpty(asmdef), "asmdef Neoxider.LevelGeneration.Unity не найден.");
             UnityEditor.PackageManager.PackageInfo package =
                 UnityEditor.PackageManager.PackageInfo.FindForAssetPath(asmdef);
             return package != null
@@ -98,7 +100,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
             CollectionAssert.AreEqual(expected, references, path);
         }
 
-        private static void AssertNoForbiddenUsings(string folder, string[] forbiddenUsingPrefixes)
+        private static void AssertOnlyAllowedUsings(string folder, string[] allowedUsingPrefixes)
         {
             Assert.IsTrue(Directory.Exists(folder), folder);
 
@@ -108,17 +110,25 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Generation
                 for (int i = 0; i < lines.Length; i++)
                 {
                     string line = lines[i].TrimStart();
+                    if (line.StartsWith("namespace "))
+                    {
+                        break;
+                    }
+
                     if (!line.StartsWith("using "))
                     {
                         continue;
                     }
 
-                    for (int f = 0; f < forbiddenUsingPrefixes.Length; f++)
+                    bool allowed = false;
+                    for (int a = 0; a < allowedUsingPrefixes.Length && !allowed; a++)
                     {
-                        if (line.StartsWith(forbiddenUsingPrefixes[f]))
-                        {
-                            Assert.Fail($"{file}:{i + 1} uses forbidden dependency '{line}'.");
-                        }
+                        allowed = line.StartsWith(allowedUsingPrefixes[a]);
+                    }
+
+                    if (!allowed)
+                    {
+                        Assert.Fail($"{file}:{i + 1} uses a dependency outside .NET and the generation layers: '{line}'.");
                     }
                 }
             }

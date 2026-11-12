@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application.DependencyHints;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Application.DependencyHints;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.Pipeline
+namespace Neoxider.LevelGeneration.Generation.Application.Pipeline
 {
     /// <summary>
     /// Default <see cref="ILevelValidator"/>. Enforces the rules listed in PLAN.md §3.7.

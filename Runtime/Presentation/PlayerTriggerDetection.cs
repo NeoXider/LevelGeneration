@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Shared player collider checks for mission triggers (tag on root, multi-collider actors).

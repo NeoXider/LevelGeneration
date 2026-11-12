@@ -1,22 +1,22 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Путь подсказки и сплошные предметы на полу. Прежде планировщик знал только стены миникарты: путь резал стул
-    /// насквозь и шёл впритык к столам, а с ученика, стоящего на столе, лента поднималась на крышку и «перелезала»
+    /// насквозь и шёл впритык к столам, а с игрока, стоящего на столе, лента поднималась на крышку и «перелезала»
     /// через стулья. Здесь: путь держит запас от стен и предметов и не пересекает контур предмета; с предмета
-    /// ученик сначала сходит на ближайшее свободное место пола; лента после схода опускается на пол.
+    /// игрок сначала сходит на ближайшее свободное место пола; лента после схода опускается на пол.
     /// </summary>
     [Category("LevelGeneration")]
     public sealed class RouteHintObstacleTests
@@ -29,10 +29,10 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
 
         private static readonly Vector2 WestDoor = new(0f, 5f);
 
-        /// <summary>Стул на прямой между учеником и дверью (сиденье с подлокотниками ~0.8 × 0.86 м).</summary>
+        /// <summary>Стул на прямой между игроком и дверью (сиденье с подлокотниками ~0.8 × 0.86 м).</summary>
         private static readonly RouteHintObstacle Chair = RouteHintObstacle.FromRect(new Rect(4.6f, 4.57f, 0.8f, 0.86f));
 
-        /// <summary>Стол, на котором стоит ученик.</summary>
+        /// <summary>Стол, на котором стоит игрок.</summary>
         private static readonly RouteHintObstacle Table = RouteHintObstacle.FromRect(new Rect(6f, 4f, 2.5f, 2f));
 
         private readonly List<Object> _created = new();
@@ -94,7 +94,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Plan_StudentStandingOnATable_StepsDownToTheNearestFreeFloor_ThenGoesAroundTheProps()
+        public void Plan_PlayerStandingOnATable_StepsDownToTheNearestFreeFloor_ThenGoesAroundTheProps()
         {
             RouteHintGeometry geometry = HallWith(Table, Chair);
             Vector2 student = new(7.2f, 5f);
@@ -126,13 +126,13 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         /// <summary>
-        /// Скамья придвинута к столу, ученик стоит на столе у её края. Ближайший свободный угол — за скамьёй, и прежде
-        /// побеждал он: первый отрезок от ученика до точки схода проверялся только по концу и шёл сквозь скамью
+        /// Скамья придвинута к столу, игрок стоит на столе у её края. Ближайший свободный угол — за скамьёй, и прежде
+        /// побеждал он: первый отрезок от игрока до точки схода проверялся только по концу и шёл сквозь скамью
         /// (лента опускалась на её сиденье). Теперь сход проверяется всем отрезком: пересечь можно только край
         /// своего стола.
         /// </summary>
         [Test]
-        public void Plan_StudentOnATableWithABenchAgainstIt_FirstStepDoesNotCrossTheBench()
+        public void Plan_PlayerOnATableWithABenchAgainstIt_FirstStepDoesNotCrossTheBench()
         {
             RouteHintObstacle bench = RouteHintObstacle.FromRect(new Rect(6.6f, 3.2f, 1.8f, 0.8f));
             RouteHintGeometry geometry = HallWith(Table, bench);

@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>
-    /// Состояние подсказки маршрута одной миссии: какие комнаты ученик уже посетил, сколько он простоял
+    /// Состояние подсказки маршрута одной миссии: какие комнаты игрок уже посетил, сколько он простоял
     /// без прогресса и включена ли подсказка принудительно. Решение «куда и когда» принимает
     /// <see cref="DecideRouteHintUseCase"/>, был ли визит прогрессом —
     /// <see cref="DecideRouteHintProgressUseCase"/>; сессия лишь копит входные данные и держит последнее решение.
@@ -80,7 +80,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         public bool IsRoomVisited(string nodeId) => !string.IsNullOrEmpty(nodeId) && _visitedRoomIds.Contains(nodeId);
 
         /// <summary>
-        /// Ученик вошёл в комнату. Отсчёт простоя начинает заново только прогресс: вход в комнату
+        /// Игрок вошёл в комнату. Отсчёт простоя начинает заново только прогресс: вход в комнату
         /// критического пути дальше всех посещённых или завершение маршрута. Боковая комната, тупик,
         /// ветка неверного ответа и повторный визит таймер не трогают и показанную подсказку не гасят.
         /// Возвращает true только при продвижении дальше по пути; завершение маршрута обнуляет таймер,
@@ -156,8 +156,8 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         }
 
         /// <summary>
-        /// Шаг времени. Простой копится, только пока у ученика есть цель и управление у него: пока открыт
-        /// брифинг, чат, код-станция или любая UI-панель, он занят, а не заблудился.
+        /// Шаг времени. Простой копится, только пока у игрока есть цель и управление у него: пока открыт
+        /// диалог, чат или любая UI-панель, он занят, а не заблудился.
         /// </summary>
         public void Tick(float deltaSeconds, bool playerInControl)
         {

@@ -1,8 +1,9 @@
 {
-  "name": "RedoSchool.LevelGeneration",
-  "rootNamespace": "RedoSchool.LevelGeneration.Generation.Application",
+  "name": "Neoxider.LevelGeneration.Unity",
+  "rootNamespace": "Neoxider.LevelGeneration.Generation",
   "references": [
-    "RedoSchool.LevelGeneration.Domain"
+    "Neoxider.LevelGeneration.Domain",
+    "Neoxider.LevelGeneration"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
@@ -12,5 +13,5 @@
   "autoReferenced": true,
   "defineConstraints": [],
   "versionDefines": [],
-  "noEngineReferences": true
+  "noEngineReferences": false
 }

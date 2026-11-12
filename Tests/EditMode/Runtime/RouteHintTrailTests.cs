@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// The shared route-hint trail: one smoothed polyline for the floor stars and the minimap, a visible start
-    /// that follows the student at a fixed distance ahead, and the re-plan rule (deviation threshold + throttle).
+    /// that follows the player at a fixed distance ahead, and the re-plan rule (deviation threshold + throttle).
     /// </summary>
     [Category("LevelGeneration")]
     public sealed class RouteHintTrailTests
@@ -61,7 +61,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Follow_StudentOnTheTrail_HeadIsAheadOfHimAlongThePath_NotAtHisFeet()
+        public void Follow_PlayerOnTheTrail_HeadIsAheadOfHimAlongThePath_NotAtHisFeet()
         {
             RouteHintTrail trail = StraightTrail(20f);
 
@@ -76,7 +76,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Follow_StudentWalksAlongTheTrail_HeadFollowsWithoutReplacingThePoints()
+        public void Follow_PlayerWalksAlongTheTrail_HeadFollowsWithoutReplacingThePoints()
         {
             RouteHintTrail trail = StraightTrail(20f);
             int revision = trail.Revision;
@@ -94,7 +94,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Follow_StudentFarFromTheTrail_KeepsTheHeadAndReportsTheDeviation()
+        public void Follow_PlayerFarFromTheTrail_KeepsTheHeadAndReportsTheDeviation()
         {
             RouteHintTrail trail = StraightTrail(20f);
             trail.Follow(new Vector2(6f, 0f), StartOffset, MinVisible, Deviation);
@@ -108,7 +108,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Follow_StudentNearTheTarget_NeverHidesTheLastMetres()
+        public void Follow_PlayerNearTheTarget_NeverHidesTheLastMetres()
         {
             RouteHintTrail trail = StraightTrail(10f);
 
@@ -165,7 +165,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Replan_StudentOnTheTrail_NeverPlansAgain()
+        public void Replan_PlayerOnTheTrail_NeverPlansAgain()
         {
             RouteHintReplanReason reason = DecideRouteHintReplanUseCase.Execute(
                 new RouteHintReplanInput(true, false, Deviation - 0.01f, Deviation, 100f, 0f));
@@ -174,7 +174,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void Replan_StudentLeftTheTrail_WaitsForTheThrottleThenPlans()
+        public void Replan_PlayerLeftTheTrail_WaitsForTheThrottleThenPlans()
         {
             RouteHintReplanReason early = DecideRouteHintReplanUseCase.Execute(
                 new RouteHintReplanInput(true, false, Deviation + 2f, Deviation, 4.9f, 5f));
@@ -182,7 +182,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
                 new RouteHintReplanInput(true, false, Deviation + 2f, Deviation, 5f, 5f));
 
             Assert.AreEqual(RouteHintReplanReason.None, early, "Not every frame: the throttle holds the re-plan back.");
-            Assert.AreEqual(RouteHintReplanReason.StudentLeftTrail, due);
+            Assert.AreEqual(RouteHintReplanReason.PlayerLeftTrail, due);
         }
 
         [Test]

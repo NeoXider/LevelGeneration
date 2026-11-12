@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Presentation
+namespace Neoxider.LevelGeneration.Runtime.Presentation
 {
     /// <summary>
     /// Golden stars following the floor-probed shared trail. No ribbon or floor overlay. The view owns only
@@ -11,7 +11,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
     /// </summary>
     public sealed class RouteHintFloorView : MonoBehaviour
     {
-        public const string StarsShaderName = "RedoSchool/LevelGeneration/RouteHintFloorStars";
+        public const string StarsShaderName = "Neoxider/LevelGeneration/RouteHintFloorStars";
         public const int HardParticleCap = 512;
         private static readonly int TintId = Shader.PropertyToID("_Tint");
 
@@ -49,7 +49,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Presentation
         public ParticleSystem Sparkles => sparkles;
         public float LengthMeters => _lengthMeters;
 
-        /// <summary>Metres along the path where the visible stream starts (ahead of the student).</summary>
+        /// <summary>Metres along the path where the visible stream starts (ahead of the player).</summary>
         public float HeadDistance { get; private set; }
 
         public float RevealProgress { get; private set; }

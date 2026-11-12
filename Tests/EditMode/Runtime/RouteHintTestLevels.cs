@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Small levels with real proportions for the route-hint tests: 5 m floor cells, 0.3 m walls, 2.1 m doorways
@@ -98,7 +98,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         public static CriticalPathDoor HallWestDoor() => new("hall", "w", "west", "e");
 
         /// <summary>
-        /// Three 5x5 rooms in a row, doors a|b and b|c: a student next to the first door with the target beyond it.
+        /// Three 5x5 rooms in a row, doors a|b and b|c: a player next to the first door with the target beyond it.
         /// </summary>
         public static RouteHintGeometry ThreeRoomsInARow()
         {

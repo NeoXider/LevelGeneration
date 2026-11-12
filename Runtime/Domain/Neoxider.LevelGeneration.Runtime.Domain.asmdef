@@ -1,8 +1,8 @@
 {
-  "name": "RedoSchool.LevelGeneration.Runtime.Domain",
-  "rootNamespace": "RedoSchool.World.Runtime.Domain",
+  "name": "Neoxider.LevelGeneration.Runtime.Domain",
+  "rootNamespace": "Neoxider.LevelGeneration.Runtime.Domain",
   "references": [
-    "RedoSchool.LevelGeneration.Domain"
+    "Neoxider.LevelGeneration.Domain"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

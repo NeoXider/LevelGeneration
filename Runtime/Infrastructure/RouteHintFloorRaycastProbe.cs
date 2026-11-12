@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Application;
 using UnityEngine;
 
-namespace RedoSchool.LevelGeneration.Runtime.Infrastructure
+namespace Neoxider.LevelGeneration.Runtime.Infrastructure
 {
     /// <summary>
     /// Адаптер физики для ленты подсказки: луч вниз к коллайдерам пола из точки на

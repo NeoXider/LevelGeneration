@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>
     /// Mission-scoped internal event bus for runtime room events (Entered / Completed / DoorStateChanged).

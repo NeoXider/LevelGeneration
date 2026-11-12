@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
 
-namespace RedoSchool.LevelGeneration.Generation.Application.V2.Planning
+namespace Neoxider.LevelGeneration.Generation.Application.V2.Planning
 {
     public sealed class PacingBranchPlanner
     {

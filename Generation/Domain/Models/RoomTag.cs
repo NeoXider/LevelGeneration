@@ -1,6 +1,6 @@
 using System;
 
-namespace RedoSchool.LevelGeneration.Generation.Domain.Models
+namespace Neoxider.LevelGeneration.Generation.Domain.Models
 {
     /// <summary>
     /// Designer-supplied tag attached to a room template (e.g. "history", "supports_collectibles").

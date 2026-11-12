@@ -1,19 +1,19 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     /// <summary>
     /// Проводка контроллера миникарты через <c>TickFrame</c> — настоящий кадр карты без устройств ввода:
-    /// большая карта прячется, пока ученика держит UI; пунктир ждёт ленту на полу и включается сразу, если
+    /// большая карта прячется, пока игрока держит UI; пунктир ждёт ленту на полу и включается сразу, если
     /// ленту не построить; на время проявления путь не теряется; выключенная карта гасит ленту.
     /// </summary>
     [Category("LevelGeneration")]
@@ -53,7 +53,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void FullMap_WhileUiHoldsTheStudent_IsHiddenAndIgnoresM_ThenReturnsWithControl()
+        public void FullMap_WhileUiHoldsThePlayer_IsHiddenAndIgnoresM_ThenReturnsWithControl()
         {
             LevelMinimapController controller = CreateController(out _, new Vector3(0.2f, 0f, 0.5f));
             controller.Bind(CreateLayout());
@@ -208,7 +208,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         [Test]
-        public void FloorReveal_StudentOffTheTrail_StarsStillDrawTheSharedTrailPoints()
+        public void FloorReveal_PlayerOffTheTrail_StarsStillDrawTheSharedTrailPoints()
         {
             LevelMinimapController controller = CreateController(out LevelMinimapSettings settings,
                 new Vector3(0.2f, 0f, 0.5f), out Transform player);

@@ -2,16 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using RedoSchool.LevelGeneration.Generation.Application.DependencyHints;
-using RedoSchool.LevelGeneration.Generation.Application.Pipeline;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Domain;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Facade;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Placement;
-using RedoSchool.LevelGeneration.Generation.Application.V2.Policies;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Application.DependencyHints;
+using Neoxider.LevelGeneration.Generation.Application.Pipeline;
+using Neoxider.LevelGeneration.Generation.Application.V2.Domain;
+using Neoxider.LevelGeneration.Generation.Application.V2.Facade;
+using Neoxider.LevelGeneration.Generation.Application.V2.Placement;
+using Neoxider.LevelGeneration.Generation.Application.V2.Policies;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
 
-namespace RedoSchool.LevelGeneration.Generation.Application
+namespace Neoxider.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Часы одного прогона генерации (<see cref="MissionGenerator.GenerationClockFactory"/>). Служат ТОЛЬКО для
@@ -82,6 +82,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application
         private readonly IRoomDatabase _roomDatabase;
         private readonly ITilesetCatalog _tilesetCatalog;
         private readonly IInteractiveRoomKindRules _interactiveRoomKinds;
+        private readonly RoomTemplateRoles _roles;
         private readonly IReadOnlyList<IRoomDependencyHintExtractor> _hintExtractors;
         private readonly List<string> _lastWarnings = new();
         private LevelGraph _lastGraph;
@@ -100,8 +101,10 @@ namespace RedoSchool.LevelGeneration.Generation.Application
             IRoomDatabase roomDatabase,
             ITilesetCatalog tilesetCatalog,
             IInteractiveRoomKindRules interactiveRoomKinds,
-            IEnumerable<IRoomDependencyHintExtractor> hintExtractors = null)
+            IEnumerable<IRoomDependencyHintExtractor> hintExtractors = null,
+            RoomTemplateRoles roles = null)
         {
+            _roles = roles ?? RoomTemplateRoles.None;
             _rngFactory = rngFactory;
             _graphBuilder = graphBuilder;
             _roomSelector = roomSelector;
@@ -1547,7 +1550,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application
             }
 
             ct.ThrowIfCancellationRequested();
-            return PacingSocketPlacementRunner.ToLevelGraph(result.Graph);
+            return PacingSocketPlacementRunner.ToLevelGraph(result.Graph, _roles);
         }
 
         private static IReadOnlyList<LayoutRetryStage> GetLayoutPacingRetryStages(LayoutRetryPolicy retryPolicy)
@@ -2445,7 +2448,7 @@ namespace RedoSchool.LevelGeneration.Generation.Application
             {
                 BaseRoomsPlusInteractiveContent,
 
-                // TODO: expose this on MissionConfigSO if designers later want TotalRoomsRange to include
+                // TODO: expose this on the mission config view if designers later want TotalRoomsRange to include
                 // JSON interactive rooms instead of adding them on top of the base room count.
                 TotalRoomsIncludesInteractiveContent
             }

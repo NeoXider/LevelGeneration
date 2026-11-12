@@ -1,16 +1,16 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
-using RedoSchool.LevelGeneration.Generation.Domain.Enums;
-using RedoSchool.LevelGeneration.Generation.Domain.Models;
-using RedoSchool.LevelGeneration.Generation.Presentation.Runtime;
-using RedoSchool.LevelGeneration.Runtime.Application;
-using RedoSchool.LevelGeneration.Runtime.Domain.Events;
-using RedoSchool.LevelGeneration.Runtime.Infrastructure;
-using RedoSchool.LevelGeneration.Runtime.Presentation;
+using Neoxider.LevelGeneration.Generation.Domain.Enums;
+using Neoxider.LevelGeneration.Generation.Domain.Models;
+using Neoxider.LevelGeneration.Generation.Presentation.Runtime;
+using Neoxider.LevelGeneration.Runtime.Application;
+using Neoxider.LevelGeneration.Runtime.Domain.Events;
+using Neoxider.LevelGeneration.Runtime.Infrastructure;
+using Neoxider.LevelGeneration.Runtime.Presentation;
 using UnityEngine;
 
-namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
+namespace Neoxider.LevelGeneration.Tests.Runtime
 {
     [Category("LevelGeneration")]
     public sealed class LevelMinimapSessionTests
@@ -521,7 +521,7 @@ namespace RedoSchool.Tests.EditMode.LevelGeneration.Runtime
         }
 
         /// <summary>
-        /// Живая дверь связи одна (From-комнаты), и открывают её с обеих сторон: ученик в To-комнате, открывший
+        /// Живая дверь связи одна (From-комнаты), и открывают её с обеих сторон: игрок в To-комнате, открывший
         /// её, обязан увидеть комнату-владельца двери, а не «раскрыть» ту, где стоит.
         /// </summary>
         [Test]

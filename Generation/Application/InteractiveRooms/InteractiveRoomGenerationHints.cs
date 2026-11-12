@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Generation.Application
+namespace Neoxider.LevelGeneration.Generation.Application
 {
     /// <summary>
     /// Placement preferences of one interactive room type in the mission graph. Every value is optional:

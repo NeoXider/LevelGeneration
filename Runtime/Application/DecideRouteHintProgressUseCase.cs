@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     /// <summary>Исход решения о прогрессе подсказки маршрута.</summary>
     public enum RouteHintProgress
@@ -12,7 +12,7 @@ namespace RedoSchool.LevelGeneration.Runtime.Application
         NoProgress = 0,
 
         /// <summary>
-        /// Ученик продвинулся: вошёл в комнату критического пути дальше всех посещённых
+        /// Игрок продвинулся: вошёл в комнату критического пути дальше всех посещённых
         /// или выполнил задание текущей цели. Отсчёт простоя начинается заново.
         /// </summary>
         ProgressAdvanced = 1,

@@ -1,4 +1,4 @@
-namespace RedoSchool.LevelGeneration.Runtime.Application
+namespace Neoxider.LevelGeneration.Runtime.Application
 {
     public static class RouteHintDiagnosticsUseCase
     {
