@@ -266,10 +266,6 @@ namespace Neoxider.LevelGeneration.Generation.Presentation.Runtime
             Vector3 center = localBounds.center;
             float xLength = extents.x * 2f;
             float zLength = extents.z * 2f;
-            if (Mathf.Max(xLength, zLength) < MinWallLengthMeters)
-            {
-                return false;
-            }
 
             // Pick the LENGTH axis by WORLD size (mesh extent x that axis' own scale), not the raw mesh extent,
             // and take the PERPENDICULAR world extent as the wall thickness. Modular wall tiles often share a
@@ -281,6 +277,10 @@ namespace Neoxider.LevelGeneration.Generation.Presentation.Runtime
             float scaleZ = Mathf.Abs(transform.lossyScale.z);
             float worldX = xLength * scaleX;
             float worldZ = zLength * scaleZ;
+            if (Mathf.Max(worldX, worldZ) < MinWallLengthMeters)
+            {
+                return false;
+            }
 
             Vector3 localA;
             Vector3 localB;

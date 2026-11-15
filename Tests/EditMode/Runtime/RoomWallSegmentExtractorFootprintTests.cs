@@ -27,6 +27,7 @@ namespace Neoxider.LevelGeneration.Tests.Runtime
         private const float Tolerance = 0.01f;
 
         private readonly List<GameObject> _created = new();
+        private readonly List<Mesh> _meshes = new();
 
         [TearDown]
         public void TearDown()
@@ -40,6 +41,15 @@ namespace Neoxider.LevelGeneration.Tests.Runtime
             }
 
             _created.Clear();
+            foreach (Mesh mesh in _meshes)
+            {
+                if (mesh != null)
+                {
+                    Object.DestroyImmediate(mesh);
+                }
+            }
+
+            _meshes.Clear();
         }
 
         [TestCase(0f)]
@@ -61,6 +71,37 @@ namespace Neoxider.LevelGeneration.Tests.Runtime
             Cube(WallsOf(room), "WallThin", new Vector3(0f, 2f, 2f), new Vector3(8f, 4f, 0.12f));
 
             SameSegment(RoomWallSegmentExtractor.Extract(room), RoomWallSegmentExtractor.ExtractFootprints(room));
+        }
+
+        [Test]
+        public void TinyNestedMeshUnderLargeParentScale_IsAWallOfItsEffectiveSize()
+        {
+            RoomTemplate room = Room(0f, Vector3.zero);
+            GameObject nested = new("WallTileRoot");
+            _created.Add(nested);
+            nested.transform.SetParent(WallsOf(room), false);
+            nested.transform.localScale = new Vector3(100f, 100f, 50f);
+            MeshWall(nested.transform, "WallSmallMesh", Quad(new Vector2(0.02f, 0.004f)));
+
+            IReadOnlyList<RoomWallSegment2D> walls = RoomWallSegmentExtractor.Extract(room);
+
+            Assert.That(walls, Has.Count.EqualTo(1),
+                "A 2 cm x 4 mm mesh under a nested 100 x 50 parent is a real wall, not a sub-cutoff stub.");
+            Assert.That(Length(walls[0]), Is.EqualTo(2f).Within(Tolerance),
+                "The effective extent is the scaled X length, 0.02 m x 100.");
+            Assert.That(walls[0].WidthMeters, Is.EqualTo(0.2f).Within(Tolerance),
+                "The effective thickness is the scaled Z length, 0.004 m x 50.");
+        }
+
+        [Test]
+        public void LargeMeshShrunkBelowTheLengthCutoff_IsNotAWall()
+        {
+            RoomTemplate room = Room(0f, Vector3.zero);
+            GameObject wall = MeshWall(WallsOf(room), "WallShrunk", Quad(new Vector2(2f, 0.4f)));
+            wall.transform.localScale = new Vector3(0.1f, 1f, 0.1f);
+
+            Assert.That(RoomWallSegmentExtractor.Extract(room), Is.Empty,
+                "A 2 m x 0.4 m mesh scaled to 0.2 m x 0.04 m is below the 0.35 m wall cutoff.");
         }
 
         [Test]
@@ -210,6 +251,33 @@ namespace Neoxider.LevelGeneration.Tests.Runtime
             plane.transform.localRotation = rotation;
             plane.transform.localScale = scale;
             _created.Add(plane);
+        }
+
+        private Mesh Quad(Vector2 size)
+        {
+            float halfX = size.x * 0.5f;
+            float halfZ = size.y * 0.5f;
+            Mesh mesh = new();
+            mesh.vertices = new[]
+            {
+                new Vector3(-halfX, 0f, -halfZ),
+                new Vector3(-halfX, 0f, halfZ),
+                new Vector3(halfX, 0f, halfZ),
+                new Vector3(halfX, 0f, -halfZ)
+            };
+            mesh.RecalculateBounds();
+            _meshes.Add(mesh);
+            return mesh;
+        }
+
+        private GameObject MeshWall(Transform parent, string name, Mesh mesh)
+        {
+            GameObject wall = new(name);
+            _created.Add(wall);
+            wall.transform.SetParent(parent, false);
+            wall.AddComponent<MeshFilter>().sharedMesh = mesh;
+            wall.AddComponent<MeshRenderer>();
+            return wall;
         }
     }
 }
