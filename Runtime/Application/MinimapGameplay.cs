@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Neoxider.LevelGeneration.Runtime.Application
 {
-    /// <summary>Где игрок с точки зрения подсказки маршрута и большой карты.</summary>
+    /// <summary>Где игрок с точки зрения подсказки маршрута и видимости карт.</summary>
     public enum RouteHintPresence
     {
         /// <summary>
@@ -24,7 +24,10 @@ namespace Neoxider.LevelGeneration.Runtime.Application
     /// </summary>
     public interface IMinimapGameplayContext
     {
-        /// <summary>В мире ли игрок: таймер подсказки маршрута идёт и большая карта рисуется только в мире.</summary>
+        /// <summary>
+        /// В мире ли игрок: таймер подсказки маршрута идёт и обе карты рисуются только в мире.
+        /// Occupied скрывает и принудительный оверлей без уровня; состояние карт сохраняется.
+        /// </summary>
         RouteHintPresence Presence { get; }
 
         /// <summary>

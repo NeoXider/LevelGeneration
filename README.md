@@ -183,7 +183,7 @@ static class LevelGenerationHookup
 ```
 
 - **`IMinimapGameplayContext`** — `Presence` (`Exploring` / `Occupied`): the route-hint idle timer runs and
-  the full map is drawn only while the player is in the world; `WasFullMapTogglePressed` reports the
+  both maps are drawn only while the player is in the world; `WasFullMapTogglePressed` reports the
   full-map key from your own input and must stay false while your UI owns the keyboard; `DescribeControl()` feeds the route-hint diagnostics. Without a
   context the map runs standalone: always exploring, keyboard free.
 - **`LevelGenerationRuntimeLog.InfoSink` / `WarnSink`** — your logger receives the message plus the
@@ -204,6 +204,11 @@ static class LevelGenerationHookup
 
 `LevelMinimapController` is an IMGUI overlay with a compact corner map and a full map toggled with `M`.
 
+- **UI ownership.** `IsOverlayVisible` reads the host's current `Presence` before drawing. `Occupied`
+  hides both maps and the forced no-level placeholder, including when the host reports a free cursor or
+  frozen controller. Releasing ownership restores the overlay without changing revealed rooms or the
+  full-map open state. `IsFullMapVisible` also requires the full map to be open. An explicitly hidden or
+  disabled controller stays hidden; without a host context, standalone behavior remains always exploring.
 - **No spoilers.** Both maps draw only revealed rooms and the links between them: a room is revealed when
   the player enters it (`RoomEnteredEvent`) or one second after a door into it opens for the player
   (`roomRevealDelaySeconds`). The exit marker appears only once its room is revealed.
@@ -249,8 +254,8 @@ EditMode tests live in `Tests/EditMode`.
   room gameplay modules and mission flow belong to your game ([PACKAGE.md](PACKAGE.md) lists the boundary).
 - **It ships no rooms and no mission config.** You author `RoomTemplate` prefabs and implement
   `IMissionConfigView`.
-- **The minimap is IMGUI.** It draws in `OnGUI` above UI Toolkit panels, which is why the full map hides
-  while your context reports `Occupied`.
+- **The minimap is IMGUI.** It draws in `OnGUI` above UI Toolkit panels, which is why both maps and the
+  forced no-level placeholder hide while your context reports `Occupied`.
 - **Player builds see only registered rooms.** The editor database also scans `RoomPrefabRoots`; a player
   only has `TilesetSO.RoomPrefabs` and `Resources`, so a room that works in the Editor can be missing in a
   build if it is not registered there.

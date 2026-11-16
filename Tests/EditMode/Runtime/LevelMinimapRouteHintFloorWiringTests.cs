@@ -20,10 +20,21 @@ namespace Neoxider.LevelGeneration.Tests.Runtime
     public sealed class LevelMinimapRouteHintFloorWiringTests
     {
         private readonly List<Object> _created = new();
+        private IMinimapGameplayContext _previousContext;
+        private TestGameplayContext _context;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _previousContext = MinimapGameplay.Context;
+            _context = new TestGameplayContext();
+            MinimapGameplay.Context = _context;
+        }
 
         [TearDown]
         public void TearDown()
         {
+            MinimapGameplay.Context = _previousContext;
             foreach (Object created in _created.ToArray())
             {
                 if (created is GameObject owner)
@@ -60,14 +71,101 @@ namespace Neoxider.LevelGeneration.Tests.Runtime
             controller.TickFrame(RouteHintPresence.Exploring, true, 0.01f, 0.01f, 0f);
             Assert.IsTrue(controller.IsFullMapVisible, "Precondition: M opened the full map in the world.");
 
-            controller.TickFrame(RouteHintPresence.Occupied, true, 0.01f, 0.01f, 0.1f);
+            _context.Presence = RouteHintPresence.Occupied;
+            controller.TickFrame(_context.Presence, true, 0.01f, 0.01f, 0.1f);
             bool hiddenWhileOccupied = !controller.IsFullMapVisible;
             bool stillOpen = controller.Session.IsFullMapOpen;
-            controller.TickFrame(RouteHintPresence.Exploring, false, 0.01f, 0.01f, 0.2f);
+            _context.Presence = RouteHintPresence.Exploring;
+            controller.TickFrame(_context.Presence, false, 0.01f, 0.01f, 0.2f);
 
             Assert.IsTrue(hiddenWhileOccupied, "An open panel must not sit under a blue frame of the full map.");
             Assert.IsTrue(stillOpen, "M is ignored while UI holds the student: it would toggle an invisible map.");
             Assert.IsTrue(controller.IsFullMapVisible, "The open map comes back together with control.");
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void Overlay_UiAcquiresInputAfterLastTick_HidesWithoutChangingMapState(bool withLevel)
+        {
+            LevelMinimapController controller = CreateVisibleOverlay(withLevel);
+            if (withLevel)
+            {
+                controller.TickFrame(RouteHintPresence.Exploring, false, 0f, 0f, 0f);
+            }
+
+            int revealedCount = controller.Session.GetVisibleRooms().Count;
+            Assert.IsTrue(controller.IsOverlayVisible, "Precondition: gameplay overlay is visible.");
+
+            _context.Presence = RouteHintPresence.Occupied;
+
+            Assert.IsFalse(controller.IsOverlayVisible,
+                "Live UI ownership hides the compact map and forced no-level placeholder before another tick.");
+            Assert.IsFalse(controller.IsFullMapVisible, "The same ownership gate hides the full map.");
+            Assert.AreEqual(withLevel, controller.Session.IsFullMapOpen, "UI ownership must not toggle the map.");
+            Assert.AreEqual(revealedCount, controller.Session.GetVisibleRooms().Count,
+                "UI ownership must preserve revealed rooms.");
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void Overlay_UiReleasesInputAfterLastTick_RestoresWithoutAnotherTick(bool withLevel)
+        {
+            LevelMinimapController controller = CreateVisibleOverlay(withLevel);
+            _context.Presence = RouteHintPresence.Occupied;
+            if (withLevel)
+            {
+                controller.TickFrame(RouteHintPresence.Occupied, false, 0f, 0f, 0f);
+            }
+
+            Assert.IsFalse(controller.IsOverlayVisible, "Precondition: the UI owns interaction.");
+
+            _context.Presence = RouteHintPresence.Exploring;
+
+            Assert.IsTrue(controller.IsOverlayVisible, "Releasing UI ownership restores the overlay immediately.");
+            Assert.AreEqual(withLevel, controller.IsFullMapVisible, "The previously open full map returns.");
+        }
+
+        [Test]
+        public void Overlay_DisabledController_DoesNotReportVisible()
+        {
+            LevelMinimapController controller = CreateVisibleOverlay(true);
+
+            controller.enabled = false;
+
+            Assert.IsFalse(controller.IsOverlayVisible);
+            Assert.IsFalse(controller.IsFullMapVisible);
+        }
+
+        [Test]
+        public void Overlay_ExplicitlyHidden_ForceWithoutLevelDoesNotOverrideVisibility()
+        {
+            LevelMinimapController controller = CreateVisibleOverlay(false);
+
+            controller.SetOverlayVisible(false, true);
+
+            Assert.IsFalse(controller.IsOverlayVisible);
+        }
+
+        [Test]
+        public void Overlay_NoLevelWithoutForce_DoesNotReportVisible()
+        {
+            LevelMinimapController controller = CreateVisibleOverlay(false);
+
+            controller.SetOverlayVisible(true);
+
+            Assert.IsFalse(controller.IsOverlayVisible);
+        }
+
+        [Test]
+        public void Overlay_NoHostContext_StandaloneRemainsVisible()
+        {
+            LevelMinimapController controller = CreateVisibleOverlay(true);
+            _context.Presence = RouteHintPresence.Occupied;
+
+            MinimapGameplay.Context = null;
+
+            Assert.IsTrue(controller.IsOverlayVisible);
+            Assert.IsTrue(controller.IsFullMapVisible);
         }
 
         [Test]
@@ -246,6 +344,26 @@ namespace Neoxider.LevelGeneration.Tests.Runtime
             Assert.AreEqual(RouteHintRevealPhase.FloorRevealing, controller.RouteHintRevealPhase,
                 "Once the path exists, the ribbon reveals: a missing path is not a failure.");
             Assert.IsTrue(view.HasPath);
+        }
+
+        private LevelMinimapController CreateVisibleOverlay(bool withLevel)
+        {
+            LevelMinimapController controller = CreateController(out _, new Vector3(0.2f, 0f, 0.5f));
+            controller.SetOverlayVisible(true, !withLevel);
+            if (withLevel)
+            {
+                controller.Bind(CreateLayout());
+                controller.ToggleFullMapFromCheat();
+            }
+
+            return controller;
+        }
+
+        private sealed class TestGameplayContext : IMinimapGameplayContext
+        {
+            public RouteHintPresence Presence { get; set; } = RouteHintPresence.Exploring;
+            public bool WasFullMapTogglePressed => false;
+            public string DescribeControl() => "control=test";
         }
 
         private Vector2 PlannedTargetPoint()

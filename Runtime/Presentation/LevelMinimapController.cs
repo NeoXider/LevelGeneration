@@ -422,10 +422,19 @@ namespace Neoxider.LevelGeneration.Runtime.Presentation
         }
 
         /// <summary>
-        /// Большая карта рисуется прямо сейчас: открыта и игрока не держит UI. Пока открыта панель или
-        /// свободная мышь, открытая карта спрятана и вернётся вместе с управлением.
+        /// Разрешена отрисовка карт или заглушки без уровня. IMGUI лежит поверх UI Toolkit, поэтому
+        /// занятость проверяется непосредственно перед отрисовкой: UI может забрать ввод после Update,
+        /// а без уровня Update вообще не выполняет шаг карты. Состояние открытой карты сохраняется.
         /// </summary>
-        public bool IsFullMapVisible => _session.IsFullMapOpen && _playerPresence == RouteHintPresence.Exploring;
+        public bool IsOverlayVisible => isActiveAndEnabled && drawRuntimeGui
+            && (_session.HasActiveLevel || forceVisibleWhenNoLevel)
+            && MinimapGameplay.Context.Presence == RouteHintPresence.Exploring;
+
+        /// <summary>
+        /// Большая карта рисуется прямо сейчас: открыта и оверлей разрешён. Пока игрока держит UI,
+        /// открытая карта спрятана и вернётся вместе с управлением.
+        /// </summary>
+        public bool IsFullMapVisible => IsOverlayVisible && _session.IsFullMapOpen;
 
         /// <summary>
         /// Телепорт после загрузки может не вызвать триггер комнаты. Старый список revealedNodeIds
@@ -528,9 +537,9 @@ namespace Neoxider.LevelGeneration.Runtime.Presentation
 
         /// <summary>
         /// Один кадр карты без чтения устройств: раскрытие комнат, подсказка маршрута (пол, затем пунктир) и
-        /// клавиша большой карты. Пока игрока держит UI (<see cref="RouteHintPresence.Occupied"/>), большая
-        /// карта не рисуется и <c>M</c> её не переключает. <see cref="Update"/> подаёт сюда факты игры;
-        /// EditMode-тесты — свои, без сцены и без устройства ввода.
+        /// клавиша большой карты. Пока игрока держит UI (<see cref="RouteHintPresence.Occupied"/>), <c>M</c>
+        /// карту не переключает. Отрисовка отдельно проверяет живой контекст в <see cref="IsOverlayVisible"/>.
+        /// <see cref="Update"/> подаёт сюда факты игры; EditMode-тесты — свои, без сцены и устройства ввода.
         /// </summary>
         internal void TickFrame(RouteHintPresence presence, bool fullMapKeyPressed, float deltaTime,
             float unscaledDeltaTime, float now, float? scaledNow = null)
@@ -642,7 +651,7 @@ namespace Neoxider.LevelGeneration.Runtime.Presentation
 
         private void OnGUI()
         {
-            if (!drawRuntimeGui || !IsDrawEvent(Event.current))
+            if (!IsDrawEvent(Event.current) || !IsOverlayVisible)
             {
                 return;
             }
@@ -660,9 +669,7 @@ namespace Neoxider.LevelGeneration.Runtime.Presentation
 
             DrawMap(minimapRect, false);
 
-            // IMGUI рисуется поверх любой панели UI Toolkit: открытая большая карта закрыла бы собой чат,
-            // UI-панель или вопрос голубой рамкой посреди экрана. Поэтому она видна, только пока игрок
-            // в мире (RouteHintPresenceUseCase), и возвращается, когда панель закрыта.
+            // Общая проверка выше скрывает обе карты, пока интерфейс хозяина держит игрока.
             if (IsFullMapVisible)
             {
                 Rect fullRect = new(Screen.width * 0.15f, Screen.height * 0.20f, Screen.width * 0.70f,

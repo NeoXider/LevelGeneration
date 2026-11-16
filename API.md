@@ -147,8 +147,13 @@ Pure C# события комнат, дверей и endpoint вынесены �
 - `LevelMinimapController.NotifyDoorOpened`, `SetRouteHintForced`, `RouteHint`, `Settings`
   (`LevelMinimapSettings`, `Resources/Minimap/LevelMinimapSettings`).
 - `IMinimapGameplayContext` — что карте нужно от игры: `Presence` → `RouteHintPresence` (`Exploring` /
-  `Occupied`: таймер простоя идёт и большая карта рисуется только в мире), `WasFullMapTogglePressed`
+  `Occupied`: таймер простоя идёт и обе карты рисуются только в мире), `WasFullMapTogglePressed`
   (нажатие клавиши большой карты из ввода игры; молчит, пока клавиатурой владеет UI), `DescribeControl()` (фрагмент `RouteHintDiagnosticText`).
+- `LevelMinimapController.IsOverlayVisible` — живое разрешение отрисовки: компонент активен и включён,
+  оверлей разрешён, уровень активен либо включён принудительный показ без уровня, а контекст сообщает
+  `Exploring`. `Occupied` скрывает компактную карту, полную карту и заглушку без уровня, включая свободный
+  курсор и заморозку контроллера по решению хозяина. Проверка не ждёт следующего `Update` и не меняет
+  раскрытые комнаты или открытое состояние карты. `IsFullMapVisible` дополнительно требует открытую карту.
   Подключение — `MinimapGameplay.Context`; без него карта автономна (в мире, клавиатура свободна).
   Журнал — `LevelGenerationRuntimeLog.Info/Warn` с приёмниками `InfoSink`/`WarnSink` (сообщение, файл,
   метод); без приёмника — консоль Unity. Решение о присутствии по фактам ввода живёт в игре

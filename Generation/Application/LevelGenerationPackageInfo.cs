@@ -8,7 +8,7 @@
     {
         public const string PackageName = "com.neoxider.level-generation";
         public const string DisplayName = "Neoxider LevelGeneration";
-        public const string Version = "6.0.1";
+        public const string Version = "6.0.2";
         public const string Author = "Neoxider";
 
         /// <summary>

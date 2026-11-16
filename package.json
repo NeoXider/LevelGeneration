@@ -1,7 +1,7 @@
 {
   "name": "com.neoxider.level-generation",
   "displayName": "Neoxider LevelGeneration",
-  "version": "6.0.1",
+  "version": "6.0.2",
   "unity": "6000.0",
   "description": "Door-socket based procedural level generation, room placement, validation, runtime door topology and minimap support for Unity projects.",
   "author": {
